@@ -47,6 +47,7 @@ kotlin {
 
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
+    implementation(files("libs/printer-lib-3.5.8.aar"))
 }
 
 flutter {
