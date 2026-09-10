@@ -10,6 +10,13 @@ void main() {
 
     expect(find.byKey(BrandLaunchPage.pageKey), findsOneWidget);
     expect(find.text('每一袋，都安心有序'), findsOneWidget);
+    expect(
+      find.image(const AssetImage(BrandLaunchPage.assetName)),
+      findsOneWidget,
+    );
+
+    await tester.pump(const Duration(seconds: 3));
+    expect(find.byKey(BrandLaunchPage.pageKey), findsOneWidget);
 
     await tester.pumpAndSettle();
     expect(find.byKey(BrandLaunchPage.pageKey), findsNothing);

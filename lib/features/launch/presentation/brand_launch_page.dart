@@ -5,7 +5,7 @@ class BrandLaunchPage extends StatefulWidget {
   const BrandLaunchPage({required this.onFinished, super.key});
 
   static const pageKey = Key('brand-launch-page');
-  static const assetName = 'assets/branding/dun_dun_dun_splash_portrait.png';
+  static const assetName = 'assets/branding/dun_dun_dun_splash_v3.png';
 
   final VoidCallback onFinished;
 
@@ -17,7 +17,6 @@ class _BrandLaunchPageState extends State<BrandLaunchPage>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
   late final Animation<double> _opacity;
-  late final Animation<double> _scale;
   late final Animation<Offset> _textOffset;
 
   @override
@@ -25,23 +24,16 @@ class _BrandLaunchPageState extends State<BrandLaunchPage>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1800),
+      duration: const Duration(milliseconds: 3600),
     );
-    _opacity = TweenSequence<double>(
-      [
-        TweenSequenceItem(tween: Tween(begin: 0, end: 1), weight: 18),
-        TweenSequenceItem(tween: ConstantTween(1), weight: 67),
-        TweenSequenceItem(tween: Tween(begin: 1, end: 0), weight: 15),
-      ],
-    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic));
-    _scale = Tween(
-      begin: 1.035,
-      end: 1.0,
-    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic));
+    _opacity = TweenSequence<double>([
+      TweenSequenceItem(tween: ConstantTween(1), weight: 88),
+      TweenSequenceItem(tween: Tween(begin: 1, end: 0), weight: 12),
+    ]).animate(CurvedAnimation(parent: _controller, curve: Curves.easeIn));
     _textOffset = Tween(begin: const Offset(0, 0.14), end: Offset.zero).animate(
       CurvedAnimation(
         parent: _controller,
-        curve: const Interval(0, 0.42, curve: Curves.easeOutCubic),
+        curve: const Interval(0, 0.2, curve: Curves.easeOutCubic),
       ),
     );
     _controller.forward().whenComplete(widget.onFinished);
@@ -64,13 +56,10 @@ class _BrandLaunchPageState extends State<BrandLaunchPage>
           child: Stack(
             fit: StackFit.expand,
             children: [
-              ScaleTransition(
-                scale: _scale,
-                child: Image.asset(
-                  BrandLaunchPage.assetName,
-                  fit: BoxFit.cover,
-                  filterQuality: FilterQuality.high,
-                ),
+              Image.asset(
+                BrandLaunchPage.assetName,
+                fit: BoxFit.contain,
+                filterQuality: FilterQuality.high,
               ),
               SafeArea(
                 child: Align(

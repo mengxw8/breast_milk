@@ -2,7 +2,7 @@
 <resources>
     <style name="LaunchTheme" parent="@android:style/Theme.Material.Light.NoActionBar">
         <item name="android:windowSplashScreenBackground">@color/brand_coral</item>
-        <item name="android:windowSplashScreenAnimatedIcon">@drawable/transparent_splash_icon</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/dun_dun_dun_splash_icon</item>
         <item name="android:windowSplashScreenIconBackgroundColor">@color/brand_coral</item>
     </style>
 </resources>

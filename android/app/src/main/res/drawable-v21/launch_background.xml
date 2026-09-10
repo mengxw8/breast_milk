@@ -2,4 +2,9 @@
 <!-- Modify this file to customize your launch splash screen -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
     <item android:drawable="@color/brand_coral" />
+    <item>
+        <bitmap
+            android:gravity="center"
+            android:src="@drawable/dun_dun_dun_splash_icon" />
+    </item>
 </layer-list>
