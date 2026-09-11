@@ -1,4 +1,5 @@
 import 'package:breast_milk/app/app.dart';
+import 'package:breast_milk/features/inventory/presentation/inventory_page.dart';
 import 'package:breast_milk/features/launch/presentation/brand_launch_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -42,7 +43,7 @@ void main() {
 
     await tester.tap(find.text('库存'));
     await tester.pumpAndSettle();
-    expect(find.text('还没有库存记录'), findsOneWidget);
+    expect(find.byType(InventoryPage), findsOneWidget);
 
     await tester.tap(find.text('扫码'));
     await tester.pumpAndSettle();
