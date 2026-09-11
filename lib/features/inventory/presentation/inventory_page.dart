@@ -295,11 +295,13 @@ class _RecordTile extends StatefulWidget {
   const _RecordTile({
     required this.record,
     required this.onTap,
-    required this.onDiscard,`r`n    required this.onDelete,
+    required this.onDiscard,
+    required this.onDelete,
   });
   final MilkRecord record;
   final VoidCallback onTap;
-  final Future<bool> Function() onDiscard;`r`n  final Future<bool> Function() onDelete;
+  final Future<bool> Function() onDiscard;
+  final Future<bool> Function() onDelete;
 
   @override
   State<_RecordTile> createState() => _RecordTileState();
@@ -417,9 +419,8 @@ class _RecordTileState extends State<_RecordTile> {
       ),
     );
   }
-
-  Future<bool> _deleteRecord() => widget.onSwipe();
 }
+
 class _RecordDetails extends StatelessWidget {
   const _RecordDetails({
     required this.record,
