@@ -51,7 +51,15 @@ class SettingsPage extends ConsumerWidget {
                       await service.initialize();
                       if (enabled) {
                         await service.requestPermission();
-                        await service.scheduleDaily(hour: 9, minute: 0);
+                        final time =
+                            values.asData?.value['notifications.time']
+                                as String? ??
+                            '09:00';
+                        final parts = time.split(':');
+                        await service.scheduleDaily(
+                          hour: int.tryParse(parts.first) ?? 9,
+                          minute: int.tryParse(parts.last) ?? 0,
+                        );
                       } else {
                         await service.cancel();
                       }
@@ -116,6 +124,15 @@ class SettingsPage extends ConsumerWidget {
         '${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}';
     await SettingsStore(ref.read(appDatabaseProvider))
         .write('notifications.time', value, DateTime.now().toUtc());
+    if (ref
+            .read(settingsValuesProvider)
+            .asData
+            ?.value['notifications.enabled'] ==
+        true) {
+      final service = NotificationService();
+      await service.initialize();
+      await service.scheduleDaily(hour: picked.hour, minute: picked.minute);
+    }
     ref.invalidate(settingsValuesProvider);
   }
 
