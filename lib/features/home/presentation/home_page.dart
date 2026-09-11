@@ -1,18 +1,37 @@
 import 'package:breast_milk/app/theme/app_theme.dart';
+import 'package:breast_milk/data/database/database_providers.dart';
+import 'package:breast_milk/domain/models/milk_record.dart';
+import 'package:breast_milk/domain/services/inventory_calculator.dart';
 import 'package:breast_milk/shared/widgets/app_empty_state.dart';
 import 'package:breast_milk/shared/widgets/milk_drop_mark.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 
-class HomePage extends StatelessWidget {
+final homeInventorySummaryProvider = FutureProvider<InventorySummary>((ref) {
+  return ref
+      .watch(milkRepositoryProvider)
+      .inventorySummary(DateTime.now().toUtc());
+});
+
+final homeEarliestRecordProvider = FutureProvider<MilkRecord?>((ref) {
+  return ref
+      .watch(milkRepositoryProvider)
+      .earliestUsable(DateTime.now().toUtc());
+});
+
+class HomePage extends ConsumerWidget {
   const HomePage({super.key});
 
   static const routeName = 'home';
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final semantic = theme.extension<AppSemanticColors>()!;
+    final summary = ref.watch(homeInventorySummaryProvider);
+    final earliest = ref.watch(homeEarliestRecordProvider);
     return Scaffold(
       body: SafeArea(
         bottom: false,
@@ -56,20 +75,48 @@ class HomePage extends StatelessWidget {
                 children: [
                   Text('可用库存', style: theme.textTheme.titleMedium),
                   const SizedBox(height: 10),
-                  Wrap(
-                    spacing: 24,
-                    runSpacing: 8,
-                    crossAxisAlignment: WrapCrossAlignment.end,
-                    children: [
-                      Text('0 袋', style: theme.textTheme.headlineSmall),
-                      Text('0 mL', style: theme.textTheme.headlineSmall),
-                    ],
+                  summary.when(
+                    data: (value) => Wrap(
+                      spacing: 24,
+                      runSpacing: 8,
+                      crossAxisAlignment: WrapCrossAlignment.end,
+                      children: [
+                        Text(
+                          '${value.available.bagCount} 袋',
+                          style: theme.textTheme.headlineSmall,
+                        ),
+                        Text(
+                          '${value.available.totalMl} mL',
+                          style: theme.textTheme.headlineSmall,
+                        ),
+                      ],
+                    ),
+                    error: (_, _) =>
+                        Text('库存读取失败', style: theme.textTheme.headlineSmall),
+                    loading: () =>
+                        Text('正在读取', style: theme.textTheme.headlineSmall),
                   ),
                   const SizedBox(height: 8),
-                  Text(
-                    '入库后会显示最早需要使用的日期',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
+                  earliest.when(
+                    data: (record) => Text(
+                      record == null
+                          ? '入库后会显示最早需要使用的日期'
+                          : '最早需使用：${DateFormat('M月d日 HH:mm').format((record.bestUseAtUtc ?? record.expiresAtUtc).toLocal())}',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    error: (_, _) => Text(
+                      '期限信息暂不可用',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    loading: () => Text(
+                      '正在计算期限',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
                     ),
                   ),
                 ],
@@ -80,7 +127,7 @@ class HomePage extends StatelessWidget {
               children: [
                 Expanded(
                   child: FilledButton.icon(
-                    onPressed: null,
+                    onPressed: () => context.push('/intake'),
                     icon: const Icon(Icons.add_rounded),
                     label: const Text('母乳入库'),
                   ),
