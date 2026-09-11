@@ -24,6 +24,7 @@ void main() {
     );
     final json = await BackupService(source).exportJson();
     final count = await BackupService(target).importJson(json);
+    expect(await BackupService(target).importJson(json), 0);
     expect(count, 1);
     expect(
       (await DriftMilkRepository(target).list(const MilkRecordFilter())),
