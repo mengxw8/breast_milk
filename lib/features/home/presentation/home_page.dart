@@ -190,7 +190,10 @@ class HomePage extends ConsumerWidget {
                         message: '完成第一袋母乳入库后，会在这里提示使用顺序和期限。',
                       );
                     }
-                    return _RiskSummary(count: risks.length);
+                    return _PriorityRecords(
+                      records: records,
+                      nowUtc: DateTime.now().toUtc(),
+                    );
                   },
                 ),
           ],
@@ -200,17 +203,93 @@ class HomePage extends ConsumerWidget {
   }
 }
 
-class _RiskSummary extends StatelessWidget {
-  const _RiskSummary({required this.count});
-  final int count;
+class _PriorityRecords extends StatelessWidget {
+  const _PriorityRecords({required this.records, required this.nowUtc});
+  final List<MilkRecord> records;
+  final DateTime nowUtc;
   @override
-  Widget build(BuildContext context) => Card(
-    child: ListTile(
-      leading: Icon(
-        count == 0 ? Icons.check_circle_outline : Icons.warning_amber_rounded,
+  Widget build(BuildContext context) {
+    final prioritized =
+        records
+            .where(
+              (r) =>
+                  r.status != MilkStatus.checkedOut &&
+                  r.status != MilkStatus.discarded,
+            )
+            .toList()
+          ..sort((a, b) => a.storedAtUtc.compareTo(b.storedAtUtc));
+    if (prioritized.isEmpty) {
+      return const Card(
+        child: ListTile(
+          leading: Icon(Icons.check_circle_outline),
+          title: Text('暂无可优先使用记录'),
+          subtitle: Text('当前库存期限正常'),
+        ),
+      );
+    }
+    return Column(
+      children: prioritized
+          .take(10)
+          .map((r) => _PriorityCard(record: r, nowUtc: nowUtc))
+          .toList(),
+    );
+  }
+}
+
+class _PriorityCard extends StatelessWidget {
+  const _PriorityCard({required this.record, required this.nowUtc});
+  final MilkRecord record;
+  final DateTime nowUtc;
+  @override
+  Widget build(BuildContext context) {
+    final semantic = Theme.of(context).extension<AppSemanticColors>()!;
+    final expiresIn = record.expiresAtUtc.difference(nowUtc);
+    final bestUseIn = record.bestUseAtUtc?.difference(nowUtc);
+    final special =
+        record.isExpiredAt(nowUtc) ||
+        record.status == MilkStatus.thawing ||
+        expiresIn <= const Duration(days: 7);
+    final near =
+        !special &&
+        (expiresIn <= const Duration(days: 30) ||
+            (bestUseIn != null && bestUseIn <= const Duration(days: 30)));
+    final color = special
+        ? semantic.softCoral
+        : near
+        ? semantic.softAmber
+        : semantic.softLake;
+    final label = special
+        ? '特别临期'
+        : near
+        ? '临期'
+        : '正常';
+    return Card(
+      color: color,
+      margin: const EdgeInsets.only(bottom: 8),
+      child: ListTile(
+        leading: Icon(
+          special
+              ? Icons.warning_amber_rounded
+              : near
+              ? Icons.schedule_outlined
+              : Icons.check_circle_outline,
+        ),
+        title: Text('${record.amountMl} mL · ${record.id}'),
+        subtitle: Text(
+          '入库 ${DateFormat('M月d日 HH:mm').format(record.storedAtUtc.toLocal())} · $label',
+        ),
+        trailing: Text(
+          record.status == MilkStatus.thawing
+              ? '解冻中'
+              : '剩余 ${_daysLabel(expiresIn)}',
+        ),
       ),
-      title: Text(count == 0 ? '暂无风险提醒' : ' 袋需要处理'),
-      subtitle: Text(count == 0 ? '当前库存期限正常' : '请优先查看库存列表中的期限和解冻状态'),
-    ),
-  );
+    );
+  }
+
+  String _daysLabel(Duration value) {
+    if (value.isNegative) return '已过期';
+    if (value.inDays > 0) return '${value.inDays}天';
+    return '${value.inHours}小时';
+  }
 }
