@@ -1,6 +1,7 @@
 import 'package:breast_milk/data/database/database_providers.dart';
 import 'package:breast_milk/domain/models/milk_enums.dart';
 import 'package:breast_milk/domain/models/milk_record.dart';
+import 'package:breast_milk/domain/models/milk_status_event.dart';
 import 'package:breast_milk/domain/repositories/milk_repository.dart';
 import 'package:breast_milk/shared/widgets/app_empty_state.dart';
 import 'package:flutter/material.dart';
@@ -137,6 +138,7 @@ class _InventoryPageState extends ConsumerState<InventoryPage> {
       builder: (_) => _RecordDetails(
         record: record,
         statusLabel: _statusLabel,
+        events: ref.read(milkRepositoryProvider).eventsFor(record.id),
         onAction: (action) async {
           Navigator.pop(context);
           try {
@@ -196,10 +198,12 @@ class _RecordDetails extends StatelessWidget {
   const _RecordDetails({
     required this.record,
     required this.statusLabel,
+    required this.events,
     required this.onAction,
   });
   final MilkRecord record;
   final String Function(MilkStatus) statusLabel;
+  final Future<List<MilkStatusEvent>> events;
   final Future<void> Function(MilkAction) onAction;
 
   @override
@@ -224,6 +228,15 @@ class _RecordDetails extends StatelessWidget {
           onPressed: () => onAction(MilkAction.checkOut),
           icon: const Icon(Icons.output_rounded),
           label: const Text('整袋出库'),
+        ),
+      );
+    }
+    if (record.status == MilkStatus.checkedOut) {
+      actions.add(
+        OutlinedButton.icon(
+          onPressed: () => onAction(MilkAction.undoCheckOut),
+          icon: const Icon(Icons.undo_rounded),
+          label: const Text('撤销出库'),
         ),
       );
     }
@@ -255,6 +268,34 @@ class _RecordDetails extends StatelessWidget {
               ),
               if (record.foodNotes.isNotEmpty) Text('备注：${record.foodNotes}'),
               const SizedBox(height: 16),
+              FutureBuilder<List<MilkStatusEvent>>(
+                future: events,
+                builder: (context, snapshot) => ExpansionTile(
+                  tilePadding: EdgeInsets.zero,
+                  initiallyExpanded: true,
+                  title: const Text('状态时间线'),
+                  children: [
+                    if (snapshot.hasError)
+                      const ListTile(title: Text('时间线暂不可用'))
+                    else if (snapshot.data case final history?
+                        when history.isNotEmpty)
+                      ...history.map(
+                        (event) => ListTile(
+                          dense: true,
+                          leading: const Icon(Icons.circle, size: 10),
+                          title: Text(_eventLabel(event.type)),
+                          subtitle: Text(
+                            DateFormat('yyyy年M月d日 HH:mm')
+                                .format(event.occurredAtUtc.toLocal()),
+                          ),
+                        ),
+                      )
+                    else
+                      const ListTile(title: Text('暂无状态事件')),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
               ...actions.map(
                 (action) => Padding(
                   padding: const EdgeInsets.only(bottom: 8),
@@ -268,3 +309,12 @@ class _RecordDetails extends StatelessWidget {
     );
   }
 }
+
+String _eventLabel(MilkStatusEventType type) => switch (type) {
+  MilkStatusEventType.created => '创建记录',
+  MilkStatusEventType.thawingStarted => '开始解冻',
+  MilkStatusEventType.checkedOut => '整袋出库',
+  MilkStatusEventType.checkOutUndone => '撤销出库',
+  MilkStatusEventType.expired => '标记过期',
+  MilkStatusEventType.discarded => '标记丢弃',
+};
