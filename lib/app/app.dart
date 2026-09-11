@@ -40,6 +40,7 @@ class _BreastMilkAppState extends ConsumerState<BreastMilkApp> {
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(notificationSyncProvider);
     final router = ref.watch(appRouterProvider);
 
     return MaterialApp.router(
