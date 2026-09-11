@@ -1,6 +1,7 @@
 import 'package:breast_milk/app/app.dart';
 import 'package:breast_milk/features/inventory/presentation/inventory_page.dart';
 import 'package:breast_milk/features/launch/presentation/brand_launch_page.dart';
+import 'package:breast_milk/features/scanner/presentation/scanner_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -47,7 +48,7 @@ void main() {
 
     await tester.tap(find.text('扫码'));
     await tester.pumpAndSettle();
-    expect(find.text('对准标签二维码'), findsOneWidget);
+    expect(find.byType(ScannerPage), findsOneWidget);
 
     await tester.tap(find.text('统计'));
     await tester.pumpAndSettle();
