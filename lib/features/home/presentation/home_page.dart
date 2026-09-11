@@ -175,7 +175,6 @@ class HomePage extends ConsumerWidget {
                   loading: () => const Text('正在读取风险提醒'),
                   error: (_, _) => const Text('风险提醒暂不可用'),
                   data: (records) {
-                    final now = DateTime.now().toUtc();
                     if (records.isEmpty) {
                       return const AppEmptyState(
                         icon: Icons.water_drop_outlined,
