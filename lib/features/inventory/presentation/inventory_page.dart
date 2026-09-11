@@ -113,7 +113,8 @@ class _InventoryPageState extends ConsumerState<InventoryPage> {
                       itemBuilder: (context, index) => _RecordTile(
                         record: visible[index],
                         onTap: () => _showDetails(visible[index]),
-                        onSwipe: () => _handleSwipe(visible[index]),
+                        onDiscard: () => _discardRecord(visible[index]),
+                        onDelete: () => _deleteRecord(visible[index]),
                       ),
                     ),
                   );
@@ -290,19 +291,39 @@ class _InventoryPageState extends ConsumerState<InventoryPage> {
   }
 }
 
-class _RecordTile extends StatelessWidget {
+class _RecordTile extends StatefulWidget {
   const _RecordTile({
     required this.record,
     required this.onTap,
-    required this.onSwipe,
+    required this.onDiscard,`r`n    required this.onDelete,
   });
   final MilkRecord record;
   final VoidCallback onTap;
-  final Future<bool> Function() onSwipe;
+  final Future<bool> Function() onDiscard;`r`n  final Future<bool> Function() onDelete;
+
+  @override
+  State<_RecordTile> createState() => _RecordTileState();
+}
+
+class _RecordTileState extends State<_RecordTile> {
+  static const _actionWidth = 144.0;
+  double _revealed = 0;
+
+  void _onHorizontalDragUpdate(DragUpdateDetails details) {
+    setState(() {
+      _revealed = (_revealed - details.delta.dx).clamp(0, _actionWidth);
+    });
+  }
+
+  void _onHorizontalDragEnd(DragEndDetails details) {
+    setState(() {
+      _revealed = _revealed > _actionWidth / 2 ? _actionWidth : 0;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
-    final status = switch (record.status) {
+    final status = switch (widget.record.status) {
       MilkStatus.frozenInStock => '冷冻在库',
       MilkStatus.refrigeratedInStock => '冷藏在库',
       MilkStatus.thawing => '解冻中',
@@ -310,32 +331,95 @@ class _RecordTile extends StatelessWidget {
       MilkStatus.checkedOut => '已出库',
       MilkStatus.discarded => '已丢弃',
     };
-    return Dismissible(
-      key: ValueKey(record.id),
-      direction: DismissDirection.horizontal,
-      confirmDismiss: (_) => onSwipe(),
-      background: Container(
-        alignment: Alignment.centerRight,
-        padding: const EdgeInsets.symmetric(horizontal: 20),
-        color: Theme.of(context).colorScheme.error,
-        child: const Icon(Icons.delete_outline, color: Colors.white),
-      ),
-      child: Card(
-        child: ListTile(
-          onTap: onTap,
-          leading: const Icon(Icons.water_drop_outlined),
-          title: Text('${record.amountMl} mL · $status'),
-          subtitle: Text(
-            '${record.id}\n到期 ${DateFormat('M月d日 HH:mm').format(record.expiresAtUtc.toLocal())}',
-          ),
-          isThreeLine: true,
-          trailing: const Icon(Icons.chevron_right_rounded),
+    return SizedBox(
+      height: 80,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: Stack(
+          alignment: Alignment.centerRight,
+          children: [
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(
+                  width: _actionWidth / 2,
+                  height: double.infinity,
+                  child: FilledButton(
+                    style: FilledButton.styleFrom(
+                      backgroundColor: Colors.orange.shade700,
+                      shape: const RoundedRectangleBorder(),
+                      padding: EdgeInsets.zero,
+                    ),
+                    onPressed: _revealed == 0
+                        ? null
+                        : () async {
+                            if (await widget.onDiscard()) {
+                              setState(() => _revealed = 0);
+                            }
+                          },
+                    child: const Icon(Icons.archive_outlined),
+                  ),
+                ),
+                SizedBox(
+                  width: _actionWidth / 2,
+                  height: double.infinity,
+                  child: FilledButton(
+                    style: FilledButton.styleFrom(
+                      backgroundColor: Theme.of(context).colorScheme.error,
+                      shape: const RoundedRectangleBorder(),
+                      padding: EdgeInsets.zero,
+                    ),
+                    onPressed: _revealed == 0
+                        ? null
+                        : () async {
+                            if (await widget.onDelete()) {
+                              setState(() => _revealed = 0);
+                            }
+                          },
+                    child: const Icon(Icons.delete_outline),
+                  ),
+                ),
+              ],
+            ),
+            AnimatedPositioned(
+              duration: const Duration(milliseconds: 180),
+              curve: Curves.easeOut,
+              left: -_revealed,
+              right: _revealed,
+              top: 0,
+              bottom: 0,
+              child: GestureDetector(
+                onHorizontalDragUpdate: _onHorizontalDragUpdate,
+                onHorizontalDragEnd: _onHorizontalDragEnd,
+                onTap: () {
+                  if (_revealed > 0) {
+                    setState(() => _revealed = 0);
+                  } else {
+                    widget.onTap();
+                  }
+                },
+                child: Card(
+                  margin: EdgeInsets.zero,
+                  child: ListTile(
+                    leading: const Icon(Icons.water_drop_outlined),
+                    title: Text('${widget.record.amountMl} mL · $status'),
+                    subtitle: Text(
+                      '${widget.record.id}\n到期 ${DateFormat('M月d日 HH:mm').format(widget.record.expiresAtUtc.toLocal())}',
+                    ),
+                    isThreeLine: true,
+                    trailing: const Icon(Icons.chevron_right_rounded),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
-}
 
+  Future<bool> _deleteRecord() => widget.onSwipe();
+}
 class _RecordDetails extends StatelessWidget {
   const _RecordDetails({
     required this.record,
