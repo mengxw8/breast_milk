@@ -134,38 +134,7 @@ class _InventoryPageState extends ConsumerState<InventoryPage> {
   );
 
   int _statusRank(MilkStatus status) =>
-      status == MilkStatus.frozenInStock ? 0 : 1;
-
-  Future<bool> _handleSwipe(MilkRecord record) async {
-    final action = await showDialog<_SwipeAction>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('选择库存操作'),
-        content: Text('编号：${record.id}'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('取消'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, _SwipeAction.discard),
-            child: const Text('标记丢弃'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, _SwipeAction.delete),
-            child: const Text('永久删除'),
-          ),
-        ],
-      ),
-    );
-    return action == _SwipeAction.delete
-        ? _deleteRecord(record)
-        : action == _SwipeAction.discard
-        ? _discardRecord(record)
-        : false;
-  }
-
-  String _statusLabel(MilkStatus status) => switch (status) {
+      status == MilkStatus.frozenInStock ? 0 : 1;`r`n`r`n  String _statusLabel(MilkStatus status) => switch (status) {
     MilkStatus.frozenInStock => '冷冻在库',
     MilkStatus.refrigeratedInStock => '冷藏在库',
     MilkStatus.thawing => '解冻中',
