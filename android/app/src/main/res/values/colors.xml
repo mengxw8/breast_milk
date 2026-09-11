@@ -1,4 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="brand_coral">#D85F59</color>
+    <!-- Sampled from the brand artwork so the launcher icon, the native
+         launch background and the Flutter splash all agree. -->
+    <color name="brand_coral">#EE7574</color>
+    <!-- Shown for the whole cold start: Android 12+ draws its system splash as
+         a flat colour and cannot be given a bitmap. This is the top row of
+         assets/branding/dun_dun_dun_splash.png, so the artwork takes over
+         without a seam. Keep in step with SPLASH_TOP in
+         tools/branding/generate_branding.py. -->
+    <color name="brand_splash_background">#F38B88</color>
 </resources>

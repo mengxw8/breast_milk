@@ -1,11 +1,21 @@
-import 'package:breast_milk/app/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 
+/// Full-bleed launch artwork shown over the first frames.
+///
+/// The asset is authored at the target device's own size (1080x2400) and drawn
+/// with [BoxFit.cover], so it fills the screen on any aspect ratio rather than
+/// letterboxing. Please keep it that way: with [BoxFit.contain] a 736x1264
+/// source on a 1080x2400 screen left a ~272px bar top and bottom.
+///
+/// [_background] is an exact match for the artwork's top band *and* for the
+/// Android native launch background (`brand_splash_background`), so the hand-off
+/// from the system splash to this page has no visible seam - including on the
+/// frame before the asset finishes decoding.
 class BrandLaunchPage extends StatefulWidget {
   const BrandLaunchPage({required this.onFinished, super.key});
 
   static const pageKey = Key('brand-launch-page');
-  static const assetName = 'assets/branding/dun_dun_dun_splash_v3.png';
+  static const assetName = 'assets/branding/dun_dun_dun_splash.png';
 
   final VoidCallback onFinished;
 
@@ -15,27 +25,27 @@ class BrandLaunchPage extends StatefulWidget {
 
 class _BrandLaunchPageState extends State<BrandLaunchPage>
     with SingleTickerProviderStateMixin {
+  /// Must equal `brand_splash_background` in res/values/colors.xml, which in
+  /// turn is the artwork's top row - that is what Android shows during the cold
+  /// start, and any mismatch here shows up as a band during the hand-off.
+  static const _background = Color(0xFFF38B88);
+
+  /// Held just long enough to register as intentional branding. The cold start
+  /// already costs a wait before this page is even reachable, so a long hold on
+  /// top of it makes the app feel slow to open.
+  static const _hold = Duration(milliseconds: 1200);
+
   late final AnimationController _controller;
   late final Animation<double> _opacity;
-  late final Animation<Offset> _textOffset;
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 3600),
-    );
+    _controller = AnimationController(vsync: this, duration: _hold);
     _opacity = TweenSequence<double>([
-      TweenSequenceItem(tween: ConstantTween(1), weight: 88),
-      TweenSequenceItem(tween: Tween(begin: 1, end: 0), weight: 12),
+      TweenSequenceItem(tween: ConstantTween(1), weight: 82),
+      TweenSequenceItem(tween: Tween(begin: 1, end: 0), weight: 18),
     ]).animate(CurvedAnimation(parent: _controller, curve: Curves.easeIn));
-    _textOffset = Tween(begin: const Offset(0, 0.14), end: Offset.zero).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: const Interval(0, 0.2, curve: Curves.easeOutCubic),
-      ),
-    );
     _controller.forward().whenComplete(widget.onFinished);
   }
 
@@ -52,49 +62,11 @@ class _BrandLaunchPageState extends State<BrandLaunchPage>
       child: FadeTransition(
         opacity: _opacity,
         child: ColoredBox(
-          color: const Color(0xFFF3C5C2),
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              Image.asset(
-                BrandLaunchPage.assetName,
-                fit: BoxFit.contain,
-                filterQuality: FilterQuality.high,
-              ),
-              SafeArea(
-                child: Align(
-                  alignment: const Alignment(0, -0.48),
-                  child: SlideTransition(
-                    position: _textOffset,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Text(
-                          '吨吨吨',
-                          style: TextStyle(
-                            color: Color(0xFF6D2930),
-                            fontSize: 42,
-                            height: 1.15,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 5,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          '每一袋，都安心有序',
-                          style: Theme.of(context).textTheme.bodyLarge
-                              ?.copyWith(
-                                color: AppTheme.ink.withValues(alpha: 0.78),
-                                fontWeight: FontWeight.w600,
-                                letterSpacing: 1.2,
-                              ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ],
+          color: _background,
+          child: Image.asset(
+            BrandLaunchPage.assetName,
+            fit: BoxFit.cover,
+            filterQuality: FilterQuality.high,
           ),
         ),
       ),

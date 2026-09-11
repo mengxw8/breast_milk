@@ -11,13 +11,20 @@ void main() {
     await tester.pumpWidget(const ProviderScope(child: BreastMilkApp()));
 
     expect(find.byKey(BrandLaunchPage.pageKey), findsOneWidget);
-    expect(find.text('每一袋，都安心有序'), findsOneWidget);
-    expect(
-      find.image(const AssetImage(BrandLaunchPage.assetName)),
-      findsOneWidget,
+    // The artwork is the whole splash - no logo lockup or tagline over it.
+    final splash = tester.widget<Image>(
+      find.descendant(
+        of: find.byKey(BrandLaunchPage.pageKey),
+        matching: find.byType(Image),
+      ),
     );
+    expect(splash.image, const AssetImage(BrandLaunchPage.assetName));
+    // BoxFit.cover, not contain: contain letterboxed the artwork and left a
+    // bar across the top and bottom of the screen.
+    expect(splash.fit, BoxFit.cover);
 
-    await tester.pump(const Duration(seconds: 3));
+    // Still holding mid-way through the splash.
+    await tester.pump(const Duration(milliseconds: 600));
     expect(find.byKey(BrandLaunchPage.pageKey), findsOneWidget);
 
     await tester.pumpAndSettle();
