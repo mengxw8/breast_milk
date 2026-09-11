@@ -17,6 +17,7 @@ void main() {
     ),
     (MilkStatus.thawing, MilkAction.checkOut, MilkStatus.checkedOut),
     (MilkStatus.expired, MilkAction.discard, MilkStatus.discarded),
+    (MilkStatus.checkedOut, MilkAction.discard, MilkStatus.discarded),
   ];
 
   for (final (from, action, to) in allowed) {

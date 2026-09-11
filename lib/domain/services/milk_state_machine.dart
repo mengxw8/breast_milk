@@ -44,6 +44,7 @@ class MilkStateMachine {
           when hasExpired =>
         MilkStatus.expired,
       (MilkStatus.expired, MilkAction.discard) => MilkStatus.discarded,
+      (MilkStatus.checkedOut, MilkAction.discard) => MilkStatus.discarded,
       (
         MilkStatus.frozenInStock ||
             MilkStatus.refrigeratedInStock ||
