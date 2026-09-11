@@ -239,6 +239,14 @@ class DriftMilkRepository implements MilkRepository {
   }
 
   @override
+  Future<void> deleteById(String id) async {
+    final deleted = await (database.delete(
+      database.milkRecords,
+    )..where((table) => table.id.equals(id))).go();
+    if (deleted == 0) throw const MilkRepositoryFailure('record_not_found');
+  }
+
+  @override
   Future<void> updatePrintStatus({
     required String id,
     required PrintStatus status,

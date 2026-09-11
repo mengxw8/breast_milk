@@ -106,6 +106,8 @@ class _InventoryPageState extends ConsumerState<InventoryPage> {
                       itemBuilder: (context, index) => _RecordTile(
                         record: visible[index],
                         onTap: () => _showDetails(visible[index]),
+                        onDelete: () => _deleteRecord(visible[index]),
+                        onDiscard: () => _discardRecord(visible[index]),
                       ),
                     ),
                   );
@@ -166,12 +168,90 @@ class _InventoryPageState extends ConsumerState<InventoryPage> {
       ),
     );
   }
+
+  Future<bool> _discardRecord(MilkRecord record) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('确认标记丢弃'),
+        content: Text('确定将编号  标记为已丢弃吗？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('标记丢弃'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return false;
+    try {
+      await ref
+          .read(milkRepositoryProvider)
+          .transition(
+            TransitionMilkRecordCommand(
+              id: record.id,
+              action: MilkAction.discard,
+              occurredAtUtc: DateTime.now().toUtc(),
+            ),
+          );
+      ref.invalidate(inventoryRecordsProvider);
+      ref.invalidate(homeInventorySummaryProvider);
+      ref.invalidate(homeEarliestRecordProvider);
+      ref.invalidate(homeRecordsProvider);
+      return true;
+    } catch (_) {
+      if (mounted)
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('标记丢弃失败，请重试')));
+      return false;
+    }
+  }
+
+  Future<bool> _deleteRecord(MilkRecord record) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('确认删除记录'),
+        content: Text('确定永久删除编号  吗？删除后无法恢复。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('删除'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return false;
+    try {
+      await ref.read(milkRepositoryProvider).deleteById(record.id);
+      ref.invalidate(inventoryRecordsProvider);
+      ref.invalidate(homeInventorySummaryProvider);
+      ref.invalidate(homeEarliestRecordProvider);
+      ref.invalidate(homeRecordsProvider);
+      return true;
+    } catch (_) {
+      if (mounted)
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('删除失败，请重试')));
+      return false;
+    }
+  }
 }
 
 class _RecordTile extends StatelessWidget {
-  const _RecordTile({required this.record, required this.onTap});
+  const _RecordTile({required this.record, required this.onTap, required this.onDelete, required this.onDiscard});
   final MilkRecord record;
   final VoidCallback onTap;
+  final Future<bool> Function() onDelete;
+  final Future<bool> Function() onDiscard;
 
   @override
   Widget build(BuildContext context) {
@@ -193,6 +273,7 @@ class _RecordTile extends StatelessWidget {
         ),
         isThreeLine: true,
         trailing: const Icon(Icons.chevron_right_rounded),
+      ),
       ),
     );
   }

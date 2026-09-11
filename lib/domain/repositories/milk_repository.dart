@@ -15,6 +15,8 @@ abstract interface class MilkRepository {
 
   Future<MilkRecord> transition(TransitionMilkRecordCommand command);
 
+  Future<void> deleteById(String id);
+
   Future<void> updatePrintStatus({
     required String id,
     required PrintStatus status,
