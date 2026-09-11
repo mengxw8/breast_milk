@@ -578,12 +578,6 @@ class _LabelPreview extends StatelessWidget {
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    const Text(
-                                      '吨吨吨',
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.w700,
-                                      ),
-                                    ),
                                     Text(DateFormat('MM-dd').format(storedAt)),
                                     Text(DateFormat('HH:mm').format(storedAt)),
                                     Text(
