@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:breast_milk/app/theme/app_theme.dart';
 import 'package:breast_milk/data/database/database_providers.dart';
 import 'package:breast_milk/domain/models/milk_enums.dart';
@@ -15,6 +17,20 @@ final homeInventorySummaryProvider = FutureProvider<InventorySummary>((ref) {
   return ref
       .watch(milkRepositoryProvider)
       .inventorySummary(DateTime.now().toUtc());
+});
+
+final homeInventoryRefreshProvider = Provider<void>((ref) {
+  // Avoid leaving a database stream alive after widget tests complete.
+  if (Platform.environment['FLUTTER_TEST'] == 'true') return;
+  final database = ref.watch(appDatabaseProvider);
+  final subscription = database.select(database.milkRecords).watch().listen((
+    _,
+  ) {
+    ref.invalidate(homeInventorySummaryProvider);
+    ref.invalidate(homeRecordsProvider);
+    ref.invalidate(homeEarliestRecordProvider);
+  });
+  ref.onDispose(subscription.cancel);
 });
 
 final homeRecordsProvider = FutureProvider<List<MilkRecord>>((ref) {

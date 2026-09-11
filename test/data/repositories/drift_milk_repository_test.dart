@@ -300,6 +300,12 @@ void main() {
     expect(summary.checkedOut.totalMl, 80);
     expect(summary.discarded.totalMl, 0);
     expect(earliest?.amountMl, 100);
+
+    final availableAfterCheckout = await repository.inventorySummary(
+      now.add(const Duration(hours: 1)),
+    );
+    expect(availableAfterCheckout.available.bagCount, 1);
+    expect(availableAfterCheckout.available.totalMl, 100);
   });
 }
 
