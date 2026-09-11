@@ -165,8 +165,10 @@ class SettingsPage extends ConsumerWidget {
       );
       if (files.isEmpty) return;
       final bytes = await files.first.readAsBytes();
-      final count = await BackupService(ref.read(appDatabaseProvider))
-          .importJson(String.fromCharCodes(bytes));
+      final count = await BackupService(
+        ref.read(appDatabaseProvider),
+        persistPreImport: true,
+      ).importJson(String.fromCharCodes(bytes));
       if (context.mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text('已合并 $count 项数据')));
