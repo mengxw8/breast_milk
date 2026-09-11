@@ -187,7 +187,9 @@ class _InventoryPageState extends ConsumerState<InventoryPage> {
         ],
       ),
     );
-    if (confirmed != true || !mounted) return false;
+    if (confirmed != true || !mounted) {
+      return false;
+    }
     try {
       await ref
           .read(milkRepositoryProvider)
@@ -204,9 +206,10 @@ class _InventoryPageState extends ConsumerState<InventoryPage> {
       ref.invalidate(homeRecordsProvider);
       return true;
     } catch (_) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(const SnackBar(content: Text('标记丢弃失败，请重试')));
+      }
       return false;
     }
   }
@@ -229,7 +232,9 @@ class _InventoryPageState extends ConsumerState<InventoryPage> {
         ],
       ),
     );
-    if (confirmed != true || !mounted) return false;
+    if (confirmed != true || !mounted) {
+      return false;
+    }
     try {
       await ref.read(milkRepositoryProvider).deleteById(record.id);
       ref.invalidate(inventoryRecordsProvider);
@@ -238,9 +243,10 @@ class _InventoryPageState extends ConsumerState<InventoryPage> {
       ref.invalidate(homeRecordsProvider);
       return true;
     } catch (_) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(const SnackBar(content: Text('删除失败，请重试')));
+      }
       return false;
     }
   }
