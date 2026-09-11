@@ -32,6 +32,15 @@ class BackupService {
     return database.transaction(() async {
       var count = 0;
       for (final tag in tags) {
+        final importedUpdatedAt = _requiredDate(tag['updatedAtUtc']);
+        final existing =
+            await (database.select(database.foodTags)
+                  ..where((row) => row.id.equals(tag['id'] as String)))
+                .getSingleOrNull();
+        if (existing != null &&
+            !importedUpdatedAt.isAfter(existing.updatedAtUtc)) {
+          continue;
+        }
         await database
             .into(database.foodTags)
             .insertOnConflictUpdate(
@@ -39,7 +48,7 @@ class BackupService {
                 id: tag['id'] as String,
                 name: tag['name'] as String,
                 createdAtUtc: _requiredDate(tag['createdAtUtc']),
-                updatedAtUtc: _requiredDate(tag['updatedAtUtc']),
+                updatedAtUtc: importedUpdatedAt,
                 lastUsedAtUtc: Value(_date(tag['lastUsedAtUtc'])),
                 useCount: Value(tag['useCount'] as int? ?? 0),
               ),
@@ -47,6 +56,15 @@ class BackupService {
         count++;
       }
       for (final record in records) {
+        final importedUpdatedAt = _requiredDate(record['updatedAtUtc']);
+        final existing =
+            await (database.select(database.milkRecords)
+                  ..where((row) => row.id.equals(record['id'] as String)))
+                .getSingleOrNull();
+        if (existing != null &&
+            !importedUpdatedAt.isAfter(existing.updatedAtUtc)) {
+          continue;
+        }
         await database
             .into(database.milkRecords)
             .insertOnConflictUpdate(
@@ -76,12 +94,21 @@ class BackupService {
                 lastPrintedAtUtc: Value(_date(record['lastPrintedAtUtc'])),
                 expiryRuleVersion: record['expiryRuleVersion'] as String,
                 createdAtUtc: _requiredDate(record['createdAtUtc']),
-                updatedAtUtc: _requiredDate(record['updatedAtUtc']),
+                updatedAtUtc: importedUpdatedAt,
               ),
             );
         count++;
       }
       for (final event in events) {
+        final importedOccurredAt = _requiredDate(event['occurredAtUtc']);
+        final existing =
+            await (database.select(database.milkStatusEvents)
+                  ..where((row) => row.id.equals(event['id'] as String)))
+                .getSingleOrNull();
+        if (existing != null &&
+            !importedOccurredAt.isAfter(existing.occurredAtUtc)) {
+          continue;
+        }
         await database
             .into(database.milkStatusEvents)
             .insertOnConflictUpdate(
@@ -92,7 +119,7 @@ class BackupService {
                   event['type'] as String,
                   MilkStatusEventType.values,
                 ),
-                occurredAtUtc: _requiredDate(event['occurredAtUtc']),
+                occurredAtUtc: importedOccurredAt,
                 fromStatus: Value(
                   _enumNullable(event['fromStatus'], MilkStatus.values),
                 ),
