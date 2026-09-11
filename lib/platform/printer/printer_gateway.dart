@@ -19,6 +19,8 @@ abstract interface class PrinterGateway {
 
   Future<PrinterStatus> getStatus();
 
+  Future<void> playScanBeep();
+
   Future<void> printTestLabel();
 
   Future<void> printMilkLabel(MilkLabelData label);

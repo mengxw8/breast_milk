@@ -66,6 +66,9 @@ class _FakePrinterGateway implements PrinterGateway {
   Future<void> printMilkLabel(MilkLabelData label) async {}
 
   @override
+  Future<void> playScanBeep() async {}
+
+  @override
   Future<void> printTestLabel() async {}
 
   @override

@@ -1,9 +1,15 @@
 import 'package:breast_milk/data/database/database_providers.dart';
 import 'package:breast_milk/features/home/presentation/home_page.dart';
+import 'package:breast_milk/features/inventory/presentation/inventory_page.dart';
+import 'package:breast_milk/platform/printer/printer_providers.dart';
 import 'package:breast_milk/domain/models/milk_enums.dart';
 import 'package:breast_milk/domain/models/milk_record.dart';
 import 'package:breast_milk/domain/repositories/milk_repository.dart';
+
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
@@ -86,6 +92,7 @@ class _ScannerPageState extends ConsumerState<ScannerPage> {
       if (raw != null && raw != _lastCode) {
         _lastCode = raw;
         SystemSound.play(SystemSoundType.click);
+        unawaited(ref.read(printerGatewayProvider).playScanBeep());
         _handleCode(raw);
         return;
       }
@@ -154,6 +161,7 @@ class _ScannerPageState extends ConsumerState<ScannerPage> {
               occurredAtUtc: DateTime.now().toUtc(),
             ),
           );
+      ref.invalidate(inventoryRecordsProvider);
       ref.invalidate(homeInventorySummaryProvider);
       ref.invalidate(homeEarliestRecordProvider);
       ref.invalidate(homeRecordsProvider);

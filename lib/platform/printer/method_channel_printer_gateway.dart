@@ -57,6 +57,9 @@ class MethodChannelPrinterGateway implements PrinterGateway {
   }
 
   @override
+  Future<void> playScanBeep() => _invoke<void>('playScanBeep');
+
+  @override
   Future<void> printTestLabel() => _invoke<void>('printTestLabel');
 
   @override

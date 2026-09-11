@@ -87,6 +87,13 @@ class _InventoryPageState extends ConsumerState<InventoryPage> {
                             item.id.contains(query) ||
                             item.foodNotes.contains(query));
                   }).toList();
+                  visible.sort((a, b) {
+                    final rank = _statusRank(a.status)
+                        .compareTo(_statusRank(b.status));
+                    return rank != 0
+                        ? rank
+                        : a.storedAtUtc.compareTo(b.storedAtUtc);
+                  });
                   if (visible.isEmpty) {
                     return const Center(
                       child: AppEmptyState(
@@ -106,8 +113,7 @@ class _InventoryPageState extends ConsumerState<InventoryPage> {
                       itemBuilder: (context, index) => _RecordTile(
                         record: visible[index],
                         onTap: () => _showDetails(visible[index]),
-                        onDelete: () => _deleteRecord(visible[index]),
-                        onDiscard: () => _discardRecord(visible[index]),
+                        onSwipe: () => _handleSwipe(visible[index]),
                       ),
                     ),
                   );
@@ -125,6 +131,38 @@ class _InventoryPageState extends ConsumerState<InventoryPage> {
     selected: _statusFilter == status,
     onSelected: (_) => setState(() => _statusFilter = status),
   );
+
+  int _statusRank(MilkStatus status) =>
+      status == MilkStatus.frozenInStock ? 0 : 1;
+
+  Future<bool> _handleSwipe(MilkRecord record) async {
+    final action = await showDialog<_SwipeAction>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('选择库存操作'),
+        content: Text('编号：${record.id}'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, _SwipeAction.discard),
+            child: const Text('标记丢弃'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, _SwipeAction.delete),
+            child: const Text('永久删除'),
+          ),
+        ],
+      ),
+    );
+    return action == _SwipeAction.delete
+        ? _deleteRecord(record)
+        : action == _SwipeAction.discard
+        ? _discardRecord(record)
+        : false;
+  }
 
   String _statusLabel(MilkStatus status) => switch (status) {
     MilkStatus.frozenInStock => '冷冻在库',
@@ -174,7 +212,7 @@ class _InventoryPageState extends ConsumerState<InventoryPage> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('确认标记丢弃'),
-        content: Text('确定将编号  标记为已丢弃吗？'),
+        content: Text('确定将编号 ${record.id} 标记为已丢弃吗？'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -219,7 +257,7 @@ class _InventoryPageState extends ConsumerState<InventoryPage> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('确认删除记录'),
-        content: Text('确定永久删除编号  吗？删除后无法恢复。'),
+        content: Text('确定永久删除编号 ${record.id} 吗？删除后无法恢复。'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -256,13 +294,11 @@ class _RecordTile extends StatelessWidget {
   const _RecordTile({
     required this.record,
     required this.onTap,
-    required this.onDelete,
-    required this.onDiscard,
+    required this.onSwipe,
   });
   final MilkRecord record;
   final VoidCallback onTap;
-  final Future<bool> Function() onDelete;
-  final Future<bool> Function() onDiscard;
+  final Future<bool> Function() onSwipe;
 
   @override
   Widget build(BuildContext context) {
@@ -277,19 +313,12 @@ class _RecordTile extends StatelessWidget {
     return Dismissible(
       key: ValueKey(record.id),
       direction: DismissDirection.horizontal,
-      confirmDismiss: (direction) =>
-          direction == DismissDirection.endToStart ? onDelete() : onDiscard(),
+      confirmDismiss: (_) => onSwipe(),
       background: Container(
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.symmetric(horizontal: 20),
         color: Theme.of(context).colorScheme.error,
         child: const Icon(Icons.delete_outline, color: Colors.white),
-      ),
-      secondaryBackground: Container(
-        alignment: Alignment.centerLeft,
-        padding: const EdgeInsets.symmetric(horizontal: 20),
-        color: Colors.orange,
-        child: const Icon(Icons.archive_outlined, color: Colors.white),
       ),
       child: Card(
         child: ListTile(
@@ -431,3 +460,5 @@ String _eventLabel(MilkStatusEventType type) => switch (type) {
   MilkStatusEventType.expired => '标记过期',
   MilkStatusEventType.discarded => '标记丢弃',
 };
+
+enum _SwipeAction { discard, delete }

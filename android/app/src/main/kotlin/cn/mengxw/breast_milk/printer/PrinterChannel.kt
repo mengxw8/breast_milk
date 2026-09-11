@@ -1,6 +1,8 @@
 package cn.mengxw.breast_milk.printer
 
 import android.app.Activity
+import android.media.AudioManager
+import android.media.ToneGenerator
 import androidx.core.app.ActivityCompat
 import io.flutter.plugin.common.BinaryMessenger
 import io.flutter.plugin.common.EventChannel
@@ -43,6 +45,10 @@ class PrinterChannel(
                     result.success(null)
                 }
                 "getStatus" -> result.success(manager.status())
+                "playScanBeep" -> {
+                    ToneGenerator(AudioManager.STREAM_NOTIFICATION, 85).startTone(ToneGenerator.TONE_PROP_BEEP, 120)
+                    result.success(null)
+                }
                 "printTestLabel" -> {
                     manager.printTestLabel()
                     result.success(null)
