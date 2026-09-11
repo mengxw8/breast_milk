@@ -176,13 +176,6 @@ class HomePage extends ConsumerWidget {
                   error: (_, _) => const Text('风险提醒暂不可用'),
                   data: (records) {
                     final now = DateTime.now().toUtc();
-                    final risks = records
-                        .where(
-                          (record) =>
-                              record.isExpiredAt(now) ||
-                              record.status == MilkStatus.thawing,
-                        )
-                        .toList();
                     if (records.isEmpty) {
                       return const AppEmptyState(
                         icon: Icons.water_drop_outlined,
