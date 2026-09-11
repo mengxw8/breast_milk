@@ -1,5 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <uses-permission android:name="android.permission.CAMERA" />`n`n    <uses-feature
+    <uses-permission android:name="android.permission.CAMERA" />
+
+    <uses-feature
         android:name="android.hardware.bluetooth"
         android:required="false" />
 
