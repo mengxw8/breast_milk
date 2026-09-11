@@ -1,12 +1,17 @@
 import 'dart:convert';
+import 'dart:io';
+
+import 'package:path/path.dart' as path;
+import 'package:path_provider/path_provider.dart';
 
 import 'package:breast_milk/data/database/app_database.dart';
 import 'package:breast_milk/domain/models/milk_enums.dart';
 import 'package:drift/drift.dart';
 
 class BackupService {
-  const BackupService(this.database);
+  const BackupService(this.database, {this.persistPreImport = false});
   final AppDatabase database;
+  final bool persistPreImport;
 
   Future<String> exportJson() async {
     final records = await database.select(database.milkRecords).get();
@@ -29,6 +34,9 @@ class BackupService {
     final records = _maps(decoded['records']);
     final events = _maps(decoded['events']);
     final tags = _maps(decoded['foodTags']);
+    if (persistPreImport) {
+      await _writePreImportBackup(await exportJson());
+    }
     return database.transaction(() async {
       var count = 0;
       for (final tag in tags) {
@@ -133,6 +141,15 @@ class BackupService {
       }
       return count;
     });
+  }
+
+  Future<void> _writePreImportBackup(String json) async {
+    final directory = await getApplicationSupportDirectory();
+    final stamp = DateTime.now().toUtc().toIso8601String().replaceAll(':', '-');
+    final file = File(
+      path.join(directory.path, 'backup-before-import-$stamp.json'),
+    );
+    await file.writeAsString(json, flush: true);
   }
 
   List<Map<String, dynamic>> _maps(Object? value) => value is List
