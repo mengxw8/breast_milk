@@ -437,7 +437,8 @@ class _IntakePageState extends ConsumerState<IntakePage> {
   void _invalidateInventory() {
     ref
       ..invalidate(homeInventorySummaryProvider)
-      ..invalidate(homeEarliestRecordProvider)`r`n      ..invalidate(homeRecordsProvider);
+      ..invalidate(homeEarliestRecordProvider)
+      ..invalidate(homeRecordsProvider);
   }
 
   void _finish(String id, String message) {
