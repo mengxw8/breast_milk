@@ -152,6 +152,7 @@ void main() {
       'thawing:checkOut',
       'expired:discard',
       'checkedOut:undoCheckOut',
+      'checkedOut:discard',
     };
 
     for (final status in MilkStatus.values) {
