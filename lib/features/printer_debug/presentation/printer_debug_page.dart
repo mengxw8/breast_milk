@@ -82,12 +82,14 @@ class _PrinterDebugPageState extends ConsumerState<PrinterDebugPage> {
   Future<void> _connect(PrinterDevice device) => _run(() async {
     await _gateway.connect(device.address);
     final status = await _gateway.getStatus();
+    ref.invalidate(homePrinterStatusProvider);
     if (mounted) setState(() => _status = status);
   });
 
   Future<void> _disconnect() => _run(() async {
     await _gateway.disconnect();
     final status = await _gateway.getStatus();
+    ref.invalidate(homePrinterStatusProvider);
     if (mounted) setState(() => _status = status);
   });
 
