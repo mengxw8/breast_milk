@@ -4,6 +4,7 @@ import 'package:breast_milk/domain/models/milk_enums.dart';
 import 'package:breast_milk/domain/models/milk_record.dart';
 import 'package:breast_milk/domain/repositories/milk_repository.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
@@ -84,6 +85,7 @@ class _ScannerPageState extends ConsumerState<ScannerPage> {
       final raw = barcode.rawValue;
       if (raw != null && raw != _lastCode) {
         _lastCode = raw;
+        SystemSound.play(SystemSoundType.click);
         _handleCode(raw);
         return;
       }
