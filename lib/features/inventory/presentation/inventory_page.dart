@@ -247,7 +247,12 @@ class _InventoryPageState extends ConsumerState<InventoryPage> {
 }
 
 class _RecordTile extends StatelessWidget {
-  const _RecordTile({required this.record, required this.onTap, required this.onDelete, required this.onDiscard});
+  const _RecordTile({
+    required this.record,
+    required this.onTap,
+    required this.onDelete,
+    required this.onDiscard,
+  });
   final MilkRecord record;
   final VoidCallback onTap;
   final Future<bool> Function() onDelete;
@@ -263,17 +268,34 @@ class _RecordTile extends StatelessWidget {
       MilkStatus.checkedOut => '已出库',
       MilkStatus.discarded => '已丢弃',
     };
-    return Card(
-      child: ListTile(
-        onTap: onTap,
-        leading: const Icon(Icons.water_drop_outlined),
-        title: Text('${record.amountMl} mL · $status'),
-        subtitle: Text(
-          '${record.id}\n到期 ${DateFormat('M月d日 HH:mm').format(record.expiresAtUtc.toLocal())}',
-        ),
-        isThreeLine: true,
-        trailing: const Icon(Icons.chevron_right_rounded),
+    return Dismissible(
+      key: ValueKey(record.id),
+      direction: DismissDirection.horizontal,
+      confirmDismiss: (direction) =>
+          direction == DismissDirection.endToStart ? onDelete() : onDiscard(),
+      background: Container(
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        color: Theme.of(context).colorScheme.error,
+        child: const Icon(Icons.delete_outline, color: Colors.white),
       ),
+      secondaryBackground: Container(
+        alignment: Alignment.centerLeft,
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        color: Colors.orange,
+        child: const Icon(Icons.archive_outlined, color: Colors.white),
+      ),
+      child: Card(
+        child: ListTile(
+          onTap: onTap,
+          leading: const Icon(Icons.water_drop_outlined),
+          title: Text('${record.amountMl} mL · $status'),
+          subtitle: Text(
+            '${record.id}\n到期 ${DateFormat('M月d日 HH:mm').format(record.expiresAtUtc.toLocal())}',
+          ),
+          isThreeLine: true,
+          trailing: const Icon(Icons.chevron_right_rounded),
+        ),
       ),
     );
   }
