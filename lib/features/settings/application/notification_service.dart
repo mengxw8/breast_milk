@@ -24,7 +24,12 @@ class NotificationService {
         ?.requestNotificationsPermission();
   }
 
-  Future<void> scheduleDaily({required int hour, required int minute}) async {
+  Future<void> scheduleDaily({
+    required int hour,
+    required int minute,
+    int riskCount = 0,
+    int totalMl = 0,
+  }) async {
     final now = tz.TZDateTime.now(tz.local);
     var next = tz.TZDateTime(
       tz.local,
@@ -49,7 +54,9 @@ class NotificationService {
       ),
       androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
       title: '吨吨吨库存提醒',
-      body: '有母乳记录需要检查，请打开应用查看。',
+      body: riskCount > 0
+          ? '有 $riskCount 袋母乳临近期限，共 $totalMl mL，请及时处理。'
+          : '当前没有临期母乳记录。',
       matchDateTimeComponents: DateTimeComponents.time,
     );
   }
