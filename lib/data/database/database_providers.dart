@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:breast_milk/data/database/app_database.dart';
 import 'package:breast_milk/data/repositories/drift_milk_repository.dart';
 import 'package:breast_milk/domain/repositories/milk_repository.dart';
@@ -18,6 +20,8 @@ final milkRepositoryProvider = Provider<MilkRepository>(
 );
 
 final notificationSyncProvider = Provider<void>((ref) {
+  // Widget tests use fake async timers; the production stream is not needed there.
+  if (Platform.environment['FLUTTER_TEST'] == 'true') return;
   final database = ref.watch(appDatabaseProvider);
   final subscription = database.select(database.milkRecords).watch().listen((
     records,
