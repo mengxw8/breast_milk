@@ -114,7 +114,7 @@ class IntakeService {
     );
     return MilkLabelData(
       id: record.id,
-      date: DateFormat('MM-dd').format(wallTime),
+      date: DateFormat('yyyy-MM-dd').format(wallTime),
       time: DateFormat('HH:mm').format(wallTime),
       amount: '${record.amountMl} mL',
       storage: switch (record.storageMode) {

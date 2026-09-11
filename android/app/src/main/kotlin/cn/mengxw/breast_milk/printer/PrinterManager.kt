@@ -207,7 +207,6 @@ class PrinterManager(
                     TSPLConst.ROTATION_0,
                     id,
                 )
-                .text(145, 16, TSPLConst.FNT_SIMPLIFIED_CHINESE, 0, 1, 1, "吨吨吨")
                 .text(145, 50, TSPLConst.FNT_SIMPLIFIED_CHINESE, 0, 1, 1, label.value("date"))
                 .text(145, 80, TSPLConst.FNT_SIMPLIFIED_CHINESE, 0, 1, 1, label.value("time"))
                 .text(145, 110, TSPLConst.FNT_SIMPLIFIED_CHINESE, 0, 1, 1, label.value("amount"))
