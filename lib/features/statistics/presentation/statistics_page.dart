@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:breast_milk/data/database/database_providers.dart';
 import 'package:breast_milk/domain/models/milk_enums.dart';
 import 'package:breast_milk/domain/models/milk_record.dart';
@@ -12,6 +14,18 @@ final statisticsSummaryProvider = FutureProvider<InventorySummary>((ref) {
   return ref
       .watch(milkRepositoryProvider)
       .inventorySummary(DateTime.now().toUtc());
+});
+
+final statisticsRefreshProvider = Provider<void>((ref) {
+  if (Platform.environment['FLUTTER_TEST'] == 'true') return;
+  final database = ref.watch(appDatabaseProvider);
+  final subscription = database.select(database.milkRecords).watch().listen((
+    _,
+  ) {
+    ref.invalidate(statisticsSummaryProvider);
+    ref.invalidate(statisticsRecordsProvider);
+  });
+  ref.onDispose(subscription.cancel);
 });
 
 final statisticsRecordsProvider = FutureProvider<List<MilkRecord>>((ref) {
@@ -76,10 +90,14 @@ class StatisticsPage extends ConsumerWidget {
                             record.status != MilkStatus.checkedOut &&
                             record.status != MilkStatus.discarded;
                       }).toList();
-                      if (upcoming.isEmpty) return const Text('未来 30 天没有期限记录');
                       return Column(
-                        children: upcoming
-                            .map(
+                        children: [
+                          _DeadlineMetrics(records: items),
+                          const SizedBox(height: 16),
+                          if (upcoming.isEmpty)
+                            const Text('未来 30 天没有期限记录')
+                          else
+                            ...upcoming.map(
                               (record) => ListTile(
                                 contentPadding: EdgeInsets.zero,
                                 leading: const Icon(Icons.schedule_outlined),
@@ -90,8 +108,8 @@ class StatisticsPage extends ConsumerWidget {
                                   '最终期限 ${DateFormat('M月d日 HH:mm').format(record.expiresAtUtc.toLocal())}',
                                 ),
                               ),
-                            )
-                            .toList(),
+                            ),
+                        ],
                       );
                     },
                   ),
@@ -101,6 +119,82 @@ class StatisticsPage extends ConsumerWidget {
           },
         ),
       ),
+    );
+  }
+}
+
+class _DeadlineMetrics extends StatelessWidget {
+  const _DeadlineMetrics({required this.records});
+  final List<MilkRecord> records;
+
+  @override
+  Widget build(BuildContext context) {
+    final now = DateTime.now().toUtc();
+    final limit = now.add(const Duration(days: 30));
+    InventoryMetric metric(Iterable<MilkRecord> values) => values.fold(
+      const InventoryMetric(),
+      (total, record) => total.add(record.amountMl),
+    );
+    final active = records.where(
+      (record) =>
+          record.status != MilkStatus.checkedOut &&
+          record.status != MilkStatus.discarded,
+    );
+    final enteringBest = active.where(
+      (record) =>
+          record.bestUseAtUtc != null &&
+          record.bestUseAtUtc!.isAfter(now) &&
+          !record.bestUseAtUtc!.isAfter(limit),
+    );
+    final pastBest = active.where(
+      (record) =>
+          record.bestUseAtUtc != null &&
+          !record.bestUseAtUtc!.isAfter(now) &&
+          record.expiresAtUtc.isAfter(now),
+    );
+    final expiring = active.where(
+      (record) =>
+          record.expiresAtUtc.isAfter(now) &&
+          !record.expiresAtUtc.isAfter(limit),
+    );
+    final overdue = records.where(
+      (record) =>
+          record.isExpiredAt(now) &&
+          record.status != MilkStatus.checkedOut &&
+          record.status != MilkStatus.discarded,
+    );
+    final metrics = [
+      ('一个月内进入最佳使用期', metric(enteringBest)),
+      ('已过最佳使用期', metric(pastBest)),
+      ('一个月内最终过期', metric(expiring)),
+      ('已过期未处理', metric(overdue)),
+    ];
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: metrics.length,
+      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+        maxCrossAxisExtent: 220,
+        mainAxisExtent: 88,
+        crossAxisSpacing: 8,
+        mainAxisSpacing: 8,
+      ),
+      itemBuilder: (context, index) {
+        final item = metrics[index];
+        return Card(
+          child: Padding(
+            padding: const EdgeInsets.all(10),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(item.$1, maxLines: 1, overflow: TextOverflow.ellipsis),
+                const Spacer(),
+                Text('${item.$2.bagCount} 袋 · ${item.$2.totalMl} mL'),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }
