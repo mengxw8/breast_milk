@@ -194,7 +194,7 @@ class PrinterManager(
                 .gapMm(GAP_MM, 0.0)
                 .speed(3.0)
                 .density(8)
-                .direction(TSPLConst.DIRECTION_FORWARD)
+                .direction(1) // TSPL reverse direction rotates the label 180 degrees
                 .reference(0, 0)
                 .cls()
                 .box(4, 4, 316, 236, 2)

@@ -1,4 +1,5 @@
 import 'package:breast_milk/data/database/database_providers.dart';
+import 'package:breast_milk/features/home/presentation/home_page.dart';
 import 'package:breast_milk/domain/models/milk_enums.dart';
 import 'package:breast_milk/domain/models/milk_record.dart';
 import 'package:breast_milk/domain/models/milk_status_event.dart';
@@ -152,6 +153,9 @@ class _InventoryPageState extends ConsumerState<InventoryPage> {
                   ),
                 );
             ref.invalidate(inventoryRecordsProvider);
+            ref.invalidate(homeInventorySummaryProvider);
+            ref.invalidate(homeEarliestRecordProvider);
+            ref.invalidate(homeRecordsProvider);
           } catch (_) {
             if (mounted) {
               ScaffoldMessenger.of(context)

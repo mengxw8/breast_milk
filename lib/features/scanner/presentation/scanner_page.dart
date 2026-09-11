@@ -1,4 +1,5 @@
 import 'package:breast_milk/data/database/database_providers.dart';
+import 'package:breast_milk/features/home/presentation/home_page.dart';
 import 'package:breast_milk/domain/models/milk_enums.dart';
 import 'package:breast_milk/domain/models/milk_record.dart';
 import 'package:breast_milk/domain/repositories/milk_repository.dart';
@@ -151,6 +152,9 @@ class _ScannerPageState extends ConsumerState<ScannerPage> {
               occurredAtUtc: DateTime.now().toUtc(),
             ),
           );
+      ref.invalidate(homeInventorySummaryProvider);
+      ref.invalidate(homeEarliestRecordProvider);
+      ref.invalidate(homeRecordsProvider);
       if (mounted) setState(() => _message = '已出库 ${record.id}');
     } on MilkRepositoryFailure catch (error) {
       if (mounted) setState(() => _message = _failureMessage(error.code));

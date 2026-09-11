@@ -310,7 +310,8 @@ class _IntakePageState extends ConsumerState<IntakePage> {
         ],
       ),
     );
-    controller.dispose();
+    // Dialog dismissal animates after showDialog completes; dispose afterwards.
+    WidgetsBinding.instance.addPostFrameCallback((_) => controller.dispose());
     if (name == null || name.isEmpty || !mounted) return;
     try {
       final tag = await ref.read(intakeServiceProvider).saveFoodTag(name);

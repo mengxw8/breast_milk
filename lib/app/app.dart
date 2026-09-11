@@ -6,6 +6,7 @@ import 'package:breast_milk/features/settings/application/notification_service.d
 import 'package:breast_milk/features/settings/application/settings_store.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 
 class BreastMilkApp extends ConsumerStatefulWidget {
   const BreastMilkApp({super.key});
@@ -47,6 +48,9 @@ class _BreastMilkAppState extends ConsumerState<BreastMilkApp> {
       title: '吨吨吨',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
+      locale: const Locale('zh', 'CN'),
+      localizationsDelegates: GlobalMaterialLocalizations.delegates,
+      supportedLocales: const [Locale('zh', 'CN')],
       routerConfig: router,
       builder: (context, child) {
         return Stack(

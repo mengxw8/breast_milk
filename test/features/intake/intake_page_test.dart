@@ -92,6 +92,24 @@ void main() {
     );
   });
 
+  testWidgets('新入库可以添加并选择常用食物', (tester) async {
+    useTallViewport(tester);
+    await tester.pumpWidget(buildSubject());
+
+    await tester.scrollUntilVisible(
+      find.text('添加常用食物'),
+      500,
+      scrollable: find.byType(Scrollable).last,
+    );
+    await tester.tap(find.text('添加常用食物'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).last, '燕麦');
+    await tester.tap(find.text('添加'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('燕麦'), findsNWidgets(2));
+    expect((await DriftMilkRepository(database).listFoodTags()), hasLength(1));
+  });
   testWidgets('仅保存会写入真实数据库并返回上一页', (tester) async {
     useTallViewport(tester);
     await tester.pumpWidget(buildSubject(withPreviousPage: true));
