@@ -36,8 +36,3 @@ flutter:
   assets:
     - assets/branding/dun_dun_dun_logo_1024.png
     - assets/branding/dun_dun_dun_splash.png
-    # No longer referenced by any Dart code; kept only so they stay available
-    # as source art. ~1.3 MB of the APK - delete when you are happy with
-    # dun_dun_dun_splash.png.
-    - assets/branding/dun_dun_dun_splash_portrait.png
-    - assets/branding/dun_dun_dun_splash_v3.png

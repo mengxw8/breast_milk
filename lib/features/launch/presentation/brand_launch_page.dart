@@ -28,7 +28,7 @@ class _BrandLaunchPageState extends State<BrandLaunchPage>
   /// Must equal `brand_splash_background` in res/values/colors.xml, which in
   /// turn is the artwork's top row - that is what Android shows during the cold
   /// start, and any mismatch here shows up as a band during the hand-off.
-  static const _background = Color(0xFFF38B88);
+  static const _background = Color(0xFFFFF8F1);
 
   /// Held just long enough to register as intentional branding. The cold start
   /// already costs a wait before this page is even reachable, so a long hold on
