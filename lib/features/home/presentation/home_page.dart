@@ -1,6 +1,8 @@
 import 'package:breast_milk/app/theme/app_theme.dart';
 import 'package:breast_milk/data/database/database_providers.dart';
+import 'package:breast_milk/domain/models/milk_enums.dart';
 import 'package:breast_milk/domain/models/milk_record.dart';
+import 'package:breast_milk/domain/repositories/milk_repository.dart';
 import 'package:breast_milk/domain/services/inventory_calculator.dart';
 import 'package:breast_milk/shared/widgets/app_empty_state.dart';
 import 'package:breast_milk/shared/widgets/milk_drop_mark.dart';
@@ -13,6 +15,10 @@ final homeInventorySummaryProvider = FutureProvider<InventorySummary>((ref) {
   return ref
       .watch(milkRepositoryProvider)
       .inventorySummary(DateTime.now().toUtc());
+});
+
+final homeRecordsProvider = FutureProvider<List<MilkRecord>>((ref) {
+  return ref.watch(milkRepositoryProvider).list(const MilkRecordFilter());
 });
 
 final homeEarliestRecordProvider = FutureProvider<MilkRecord?>((ref) {
@@ -147,14 +153,48 @@ class HomePage extends ConsumerWidget {
             ),
             const SizedBox(height: 28),
             Text('优先使用', style: theme.textTheme.titleLarge),
-            const AppEmptyState(
-              icon: Icons.water_drop_outlined,
-              title: '库存还是空的',
-              message: '完成第一袋母乳入库后，会在这里提示使用顺序和期限。',
-            ),
+            ref
+                .watch(homeRecordsProvider)
+                .when(
+                  loading: () => const Text('正在读取风险提醒'),
+                  error: (_, _) => const Text('风险提醒暂不可用'),
+                  data: (records) {
+                    final now = DateTime.now().toUtc();
+                    final risks = records
+                        .where(
+                          (record) =>
+                              record.isExpiredAt(now) ||
+                              record.status == MilkStatus.thawing,
+                        )
+                        .toList();
+                    if (records.isEmpty) {
+                      return const AppEmptyState(
+                        icon: Icons.water_drop_outlined,
+                        title: '库存还是空的',
+                        message: '完成第一袋母乳入库后，会在这里提示使用顺序和期限。',
+                      );
+                    }
+                    return _RiskSummary(count: risks.length);
+                  },
+                ),
           ],
         ),
       ),
     );
   }
+}
+
+class _RiskSummary extends StatelessWidget {
+  const _RiskSummary({required this.count});
+  final int count;
+  @override
+  Widget build(BuildContext context) => Card(
+    child: ListTile(
+      leading: Icon(
+        count == 0 ? Icons.check_circle_outline : Icons.warning_amber_rounded,
+      ),
+      title: Text(count == 0 ? '暂无风险提醒' : ' 袋需要处理'),
+      subtitle: Text(count == 0 ? '当前库存期限正常' : '请优先查看库存列表中的期限和解冻状态'),
+    ),
+  );
 }
