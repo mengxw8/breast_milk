@@ -6,12 +6,28 @@ import 'package:breast_milk/domain/models/milk_enums.dart';
 import 'package:breast_milk/domain/models/milk_record.dart';
 import 'package:breast_milk/domain/repositories/milk_repository.dart';
 import 'package:breast_milk/domain/services/inventory_calculator.dart';
+import 'package:breast_milk/platform/printer/printer_models.dart';
+import 'package:breast_milk/platform/printer/printer_providers.dart';
 import 'package:breast_milk/shared/widgets/app_empty_state.dart';
 import 'package:breast_milk/shared/widgets/milk_drop_mark.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+
+final homePrinterStatusProvider = FutureProvider<PrinterStatus>((ref) {
+  return ref.watch(printerGatewayProvider).getStatus();
+});
+
+final homePrinterRefreshProvider = Provider<void>((ref) {
+  if (Platform.environment['FLUTTER_TEST'] == 'true') return;
+  final subscription = ref.watch(printerGatewayProvider).events.listen((event) {
+    if (event.type == PrinterEventType.connection) {
+      ref.invalidate(homePrinterStatusProvider);
+    }
+  });
+  ref.onDispose(subscription.cancel);
+});
 
 final homeInventorySummaryProvider = FutureProvider<InventorySummary>((ref) {
   return ref
@@ -50,10 +66,12 @@ class HomePage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    ref.watch(homePrinterRefreshProvider);
     final theme = Theme.of(context);
     final semantic = theme.extension<AppSemanticColors>()!;
     final summary = ref.watch(homeInventorySummaryProvider);
     final earliest = ref.watch(homeEarliestRecordProvider);
+    final printerStatus = ref.watch(homePrinterStatusProvider);
     return Scaffold(
       body: SafeArea(
         bottom: false,
@@ -78,10 +96,26 @@ class HomePage extends ConsumerWidget {
                     ],
                   ),
                 ),
-                IconButton(
-                  onPressed: () => context.go('/settings'),
-                  tooltip: '打印机未连接，前往设置',
-                  icon: const Icon(Icons.print_disabled_outlined),
+                printerStatus.when(
+                  loading: () => const IconButton(
+                    onPressed: null,
+                    tooltip: '正在读取打印机状态',
+                    icon: Icon(Icons.print_outlined),
+                  ),
+                  error: (_, _) => IconButton(
+                    onPressed: () => context.go('/settings'),
+                    tooltip: '打印机未连接，前往设置',
+                    icon: const Icon(Icons.print_disabled_outlined),
+                  ),
+                  data: (status) => IconButton(
+                    onPressed: () => context.go('/settings'),
+                    tooltip: status.isConnected ? '打印机已连接' : '打印机未连接，前往设置',
+                    icon: Icon(
+                      status.isConnected
+                          ? Icons.print_outlined
+                          : Icons.print_disabled_outlined,
+                    ),
+                  ),
                 ),
               ],
             ),
