@@ -134,7 +134,9 @@ class _InventoryPageState extends ConsumerState<InventoryPage> {
   );
 
   int _statusRank(MilkStatus status) =>
-      status == MilkStatus.frozenInStock ? 0 : 1;`r`n`r`n  String _statusLabel(MilkStatus status) => switch (status) {
+      status == MilkStatus.frozenInStock ? 0 : 1;
+
+  String _statusLabel(MilkStatus status) => switch (status) {
     MilkStatus.frozenInStock => '冷冻在库',
     MilkStatus.refrigeratedInStock => '冷藏在库',
     MilkStatus.thawing => '解冻中',
@@ -514,5 +516,3 @@ String _eventLabel(MilkStatusEventType type) => switch (type) {
   MilkStatusEventType.expired => '标记过期',
   MilkStatusEventType.discarded => '标记丢弃',
 };
-
-enum _SwipeAction { discard, delete }
