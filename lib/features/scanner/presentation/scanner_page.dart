@@ -1,3 +1,4 @@
+import 'package:breast_milk/app/app_shell.dart';
 import 'package:breast_milk/data/database/database_providers.dart';
 import 'package:breast_milk/features/home/presentation/home_page.dart';
 import 'package:breast_milk/features/inventory/presentation/inventory_page.dart';
@@ -17,21 +18,70 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 class ScannerPage extends ConsumerStatefulWidget {
   const ScannerPage({super.key});
   static const routeName = 'scanner';
+  static const branchIndex = 2;
 
   @override
   ConsumerState<ScannerPage> createState() => _ScannerPageState();
 }
 
-class _ScannerPageState extends ConsumerState<ScannerPage> {
+class _ScannerPageState extends ConsumerState<ScannerPage>
+    with WidgetsBindingObserver {
+  final _scannerController = MobileScannerController(autoStart: false);
   final _manualController = TextEditingController();
   String? _lastCode;
   bool _handling = false;
   String? _message;
+  bool _scannerActive = false;
+  bool _appResumed = true;
+  int _scannerStateRevision = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _appResumed =
+        WidgetsBinding.instance.lifecycleState == null ||
+        WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed;
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final active =
+        (ActiveBranchScope.maybeIndexOf(context) ?? ScannerPage.branchIndex) ==
+        ScannerPage.branchIndex;
+    if (active == _scannerActive) return;
+    _scannerActive = active;
+    _scheduleScannerState(active && _appResumed);
+  }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _scannerActive = false;
+    _scannerStateRevision++;
+    unawaited(_scannerController.dispose());
     _manualController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _appResumed = state == AppLifecycleState.resumed;
+    _scheduleScannerState(_scannerActive && _appResumed);
+  }
+
+  void _scheduleScannerState(bool shouldRun) {
+    final revision = ++_scannerStateRevision;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted || revision != _scannerStateRevision) return;
+      if (shouldRun && _scannerActive && _appResumed) {
+        await _scannerController.start();
+        if (mounted && !_scannerActive) await _scannerController.stop();
+      } else {
+        await _scannerController.stop();
+      }
+    });
   }
 
   @override
@@ -53,7 +103,46 @@ class _ScannerPageState extends ConsumerState<ScannerPage> {
               aspectRatio: 1,
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(8),
-                child: MobileScanner(onDetect: _onDetect),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    MobileScanner(
+                      controller: _scannerController,
+                      onDetect: _onDetect,
+                    ),
+                    Positioned(
+                      top: 12,
+                      right: 12,
+                      child: ValueListenableBuilder<MobileScannerState>(
+                        valueListenable: _scannerController,
+                        builder: (context, state, child) {
+                          final torchOn = state.torchState == TorchState.on;
+                          final available =
+                              state.isRunning &&
+                              state.torchState != TorchState.unavailable;
+                          return Material(
+                            color: Colors.black.withValues(alpha: 0.55),
+                            shape: const CircleBorder(),
+                            child: IconButton(
+                              tooltip: torchOn ? '关闭闪光灯' : '打开闪光灯',
+                              onPressed: available
+                                  ? _scannerController.toggleTorch
+                                  : null,
+                              icon: Icon(
+                                torchOn
+                                    ? Icons.flash_on_rounded
+                                    : Icons.flash_off_rounded,
+                                color: available
+                                    ? Colors.white
+                                    : Colors.white54,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
             const SizedBox(height: 16),
@@ -86,7 +175,7 @@ class _ScannerPageState extends ConsumerState<ScannerPage> {
   }
 
   void _onDetect(BarcodeCapture capture) {
-    if (_handling) return;
+    if (!_scannerActive || !_appResumed || _handling) return;
     for (final barcode in capture.barcodes) {
       final raw = barcode.rawValue;
       if (raw != null && raw != _lastCode) {

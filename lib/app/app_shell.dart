@@ -18,7 +18,10 @@ class AppShell extends StatelessWidget {
   Widget build(BuildContext context) {
     final semantic = Theme.of(context).extension<AppSemanticColors>()!;
     return Scaffold(
-      body: navigationShell,
+      body: ActiveBranchScope(
+        index: navigationShell.currentIndex,
+        child: navigationShell,
+      ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: navigationShell.currentIndex,
         onDestinationSelected: _select,
@@ -51,6 +54,27 @@ class AppShell extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+class ActiveBranchScope extends InheritedWidget {
+  const ActiveBranchScope({
+    required this.index,
+    required super.child,
+    super.key,
+  });
+
+  final int index;
+
+  static int? maybeIndexOf(BuildContext context) {
+    return context
+        .dependOnInheritedWidgetOfExactType<ActiveBranchScope>()
+        ?.index;
+  }
+
+  @override
+  bool updateShouldNotify(ActiveBranchScope oldWidget) {
+    return index != oldWidget.index;
   }
 }
 
