@@ -84,6 +84,7 @@ class MilkLabelData {
     required this.amount,
     required this.storage,
     required this.food,
+    this.isReprint = false,
   });
 
   final String id;
@@ -92,6 +93,7 @@ class MilkLabelData {
   final String amount;
   final String storage;
   final String food;
+  final bool isReprint;
 
   Map<String, String> toMap() => {
     'id': id,
@@ -100,6 +102,7 @@ class MilkLabelData {
     'amount': amount,
     'storage': storage,
     'food': food,
+    'reprint': isReprint.toString(),
   };
 }
 

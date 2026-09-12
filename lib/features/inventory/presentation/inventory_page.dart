@@ -1,5 +1,6 @@
 import 'package:breast_milk/data/database/database_providers.dart';
 import 'package:breast_milk/features/home/presentation/home_page.dart';
+import 'package:breast_milk/features/intake/application/intake_service.dart';
 import 'package:breast_milk/domain/models/milk_enums.dart';
 import 'package:breast_milk/domain/models/milk_record.dart';
 import 'package:breast_milk/domain/models/milk_status_event.dart';
@@ -90,9 +91,12 @@ class _InventoryPageState extends ConsumerState<InventoryPage> {
                   visible.sort((a, b) {
                     final rank = _statusRank(a.status)
                         .compareTo(_statusRank(b.status));
-                    return rank != 0
-                        ? rank
-                        : a.storedAtUtc.compareTo(b.storedAtUtc);
+                    if (rank != 0) return rank;
+                    if (a.status == MilkStatus.frozenInStock &&
+                        b.status == MilkStatus.frozenInStock) {
+                      return b.storedAtUtc.compareTo(a.storedAtUtc);
+                    }
+                    return a.storedAtUtc.compareTo(b.storedAtUtc);
                   });
                   if (visible.isEmpty) {
                     return const Center(
@@ -152,6 +156,10 @@ class _InventoryPageState extends ConsumerState<InventoryPage> {
         record: record,
         statusLabel: _statusLabel,
         events: ref.read(milkRepositoryProvider).eventsFor(record.id),
+        onReprint: () async {
+          Navigator.pop(context);
+          await _reprintRecord(record);
+        },
         onAction: (action) async {
           Navigator.pop(context);
           try {
@@ -177,6 +185,30 @@ class _InventoryPageState extends ConsumerState<InventoryPage> {
         },
       ),
     );
+  }
+
+  Future<void> _reprintRecord(MilkRecord record) async {
+    try {
+      final tags = await ref.read(milkRepositoryProvider).listFoodTags();
+      final foodNames = tags
+          .where((tag) => record.foodTagIds.contains(tag.id))
+          .map((tag) => tag.name);
+      final result = await ref
+          .read(intakeServiceProvider)
+          .reprint(record, foodNames: foodNames);
+      if (!mounted) return;
+      ref.invalidate(inventoryRecordsProvider);
+      final message = result.printState == IntakePrintState.printed
+          ? '重复打印标签已发送'
+          : result.printerFailure?.displayMessage ?? '重复打印失败，请重试';
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(message)));
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('重复打印失败，请重试')));
+      }
+    }
   }
 
   Future<bool> _discardRecord(MilkRecord record) async {
@@ -398,15 +430,24 @@ class _RecordDetails extends StatelessWidget {
     required this.statusLabel,
     required this.events,
     required this.onAction,
+    required this.onReprint,
   });
   final MilkRecord record;
   final String Function(MilkStatus) statusLabel;
   final Future<List<MilkStatusEvent>> events;
   final Future<void> Function(MilkAction) onAction;
+  final Future<void> Function() onReprint;
 
   @override
   Widget build(BuildContext context) {
     final actions = <Widget>[];
+    actions.add(
+      OutlinedButton.icon(
+        onPressed: onReprint,
+        icon: const Icon(Icons.print_outlined),
+        label: const Text('重复打印条码'),
+      ),
+    );
     if (record.status == MilkStatus.frozenInStock) {
       actions.add(
         FilledButton.icon(

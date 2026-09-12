@@ -8,6 +8,7 @@ import 'package:breast_milk/features/inventory/presentation/inventory_page.dart'
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -20,6 +21,84 @@ void main() {
   });
 
   tearDown(() => database.close());
+
+  testWidgets('冷冻在库按入库时间倒序排列', (tester) async {
+    final older = DateTime.utc(2026, 9, 10, 10);
+    final newer = DateTime.utc(2026, 9, 11, 10);
+    await repository.create(
+      CreateMilkRecordCommand(
+        storedAtUtc: older,
+        timezoneOffsetMinutes: 8 * 60,
+        amountMl: 100,
+        storageMode: MilkStorageMode.frozen,
+        createdAtUtc: older,
+      ),
+    );
+    await repository.create(
+      CreateMilkRecordCommand(
+        storedAtUtc: newer,
+        timezoneOffsetMinutes: 8 * 60,
+        amountMl: 200,
+        storageMode: MilkStorageMode.frozen,
+        createdAtUtc: newer,
+      ),
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [appDatabaseProvider.overrideWithValue(database)],
+        child: MaterialApp(theme: AppTheme.light, home: const InventoryPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      tester.getTopLeft(find.text('200 mL · 冷冻在库')).dy,
+      lessThan(tester.getTopLeft(find.text('100 mL · 冷冻在库')).dy),
+    );
+  });
+
+  testWidgets('库存详情可以发送带重复打印标记的标签', (tester) async {
+    const channel = MethodChannel('cn.mengxw.breast_milk/printer');
+    MethodCall? printCall;
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (call) async {
+          if (call.method == 'printMilkLabel') printCall = call;
+          return null;
+        });
+    addTearDown(
+      () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, null),
+    );
+    final now = DateTime.utc(2026, 9, 11, 10);
+    await repository.create(
+      CreateMilkRecordCommand(
+        storedAtUtc: now,
+        timezoneOffsetMinutes: 8 * 60,
+        amountMl: 180,
+        storageMode: MilkStorageMode.frozen,
+        createdAtUtc: now,
+      ),
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [appDatabaseProvider.overrideWithValue(database)],
+        child: MaterialApp(theme: AppTheme.light, home: const InventoryPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('180 mL · 冷冻在库'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('重复打印条码'));
+    await tester.pumpAndSettle();
+
+    expect(printCall, isNotNull);
+    final arguments = printCall!.arguments as Map<Object?, Object?>;
+    final label = arguments['label'] as Map<Object?, Object?>;
+    expect(label['reprint'], 'true');
+    expect(find.text('重复打印标签已发送'), findsOneWidget);
+  });
 
   testWidgets('展示记录并支持搜索与详情操作', (tester) async {
     final now = DateTime.utc(2026, 9, 11, 10);

@@ -64,6 +64,17 @@ class IntakeService {
     );
   }
 
+  Future<IntakeResult> reprint(
+    MilkRecord record, {
+    required Iterable<String> foodNames,
+  }) {
+    return _print(
+      record,
+      foodSummary: _foodSummary(foodNames, record.foodNotes),
+      isReprint: true,
+    );
+  }
+
   Future<FoodTag> saveFoodTag(String name) {
     return repository.saveFoodTag(name: name, atUtc: _nowUtc());
   }
@@ -71,6 +82,7 @@ class IntakeService {
   Future<IntakeResult> _print(
     MilkRecord record, {
     required String foodSummary,
+    bool isReprint = false,
   }) async {
     try {
       await repository.updatePrintStatus(
@@ -78,7 +90,9 @@ class IntakeService {
         status: PrintStatus.printing,
         updatedAtUtc: _nowUtc(),
       );
-      await printer.printMilkLabel(_labelFor(record, foodSummary));
+      await printer.printMilkLabel(
+        _labelFor(record, foodSummary, isReprint: isReprint),
+      );
       await repository.updatePrintStatus(
         id: record.id,
         status: PrintStatus.printed,
@@ -108,7 +122,11 @@ class IntakeService {
     }
   }
 
-  MilkLabelData _labelFor(MilkRecord record, String foodSummary) {
+  MilkLabelData _labelFor(
+    MilkRecord record,
+    String foodSummary, {
+    required bool isReprint,
+  }) {
     final wallTime = record.storedAtUtc.add(
       Duration(minutes: record.timezoneOffsetMinutes),
     );
@@ -122,6 +140,7 @@ class IntakeService {
         MilkStorageMode.refrigerated => '3°C 冷藏',
       },
       food: foodSummary,
+      isReprint: isReprint,
     );
   }
 

@@ -186,6 +186,7 @@ class PrinterManager(
         }
 
         val id = label.requiredValue("id")
+        val isReprint = label["reprint"] == "true"
         val printer = TSPLPrinter(activeConnection)
         try {
             emit("print", "printing")
@@ -197,6 +198,10 @@ class PrinterManager(
                 .direction(1) // TSPL reverse direction rotates the label 180 degrees
                 .reference(0, 0)
                 .cls()
+            if (isReprint) {
+                printer.text(145, 18, TSPLConst.FNT_SIMPLIFIED_CHINESE, 0, 1, 1, "重复打印")
+            }
+            printer
                 .box(4, 4, 316, 236, 2)
                 .qrcode(
                     14,
