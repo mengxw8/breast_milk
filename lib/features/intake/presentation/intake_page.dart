@@ -3,6 +3,7 @@ import 'package:breast_milk/domain/models/milk_enums.dart';
 import 'package:breast_milk/domain/services/expiry_policy.dart';
 import 'package:breast_milk/features/home/presentation/home_page.dart';
 import 'package:breast_milk/features/intake/application/intake_service.dart';
+import 'package:breast_milk/shared/widgets/app_time_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -262,7 +263,9 @@ class _IntakePageState extends ConsumerState<IntakePage> {
       lastDate: now,
     );
     if (date == null || !mounted) return;
-    final time = await showTimePicker(
+    // Material showTimePicker input mode crashes on Android adjustResize
+    // (fixed minHeight 216 vs shrunk keyboard viewport). Use app picker.
+    final time = await showAppTimePicker(
       context: context,
       initialTime: TimeOfDay.fromDateTime(_storedAt),
     );

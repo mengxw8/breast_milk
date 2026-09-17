@@ -6,6 +6,7 @@ import 'package:breast_milk/domain/models/milk_enums.dart';
 import 'package:breast_milk/domain/repositories/milk_repository.dart';
 import 'package:breast_milk/features/intake/presentation/intake_page.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:drift/native.dart';
@@ -26,6 +27,9 @@ void main() {
       overrides: [appDatabaseProvider.overrideWithValue(database)],
       child: MaterialApp(
         theme: AppTheme.light,
+        locale: const Locale('zh', 'CN'),
+        localizationsDelegates: GlobalMaterialLocalizations.delegates,
+        supportedLocales: const [Locale('zh', 'CN')],
         home: withPreviousPage
             ? Builder(
                 builder: (context) => Scaffold(
@@ -109,6 +113,40 @@ void main() {
 
     expect(find.text('燕麦'), findsNWidgets(2));
     expect((await DriftMilkRepository(database).listFoodTags()), hasLength(1));
+  });
+
+  testWidgets('时间选择器支持手动输入', (tester) async {
+    useTallViewport(tester);
+    await tester.pumpWidget(buildSubject());
+    await tester.tap(find.text('用于生成编号和计算期限'));
+    await tester.pumpAndSettle();
+    expect(find.byType(DatePickerDialog), findsOneWidget);
+    await tester.tap(find.text('确定'));
+    await tester.pumpAndSettle();
+
+    // Custom app time picker (Material TimePicker input mode crashes under
+    // Android adjustResize / keyboard height).
+    expect(find.text('选择时间'), findsOneWidget);
+
+    // Simulate soft keyboard covering the bottom of the screen.
+    tester.view.viewInsets = const FakeViewPadding(bottom: 320);
+    addTearDown(tester.view.resetViewInsets);
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+
+    final hourField = find.widgetWithText(TextFormField, '时');
+    final minuteField = find.widgetWithText(TextFormField, '分');
+    expect(hourField, findsOneWidget);
+    expect(minuteField, findsOneWidget);
+    await tester.enterText(hourField, '10');
+    await tester.enterText(minuteField, '30');
+    await tester.tap(
+      find.descendant(of: find.byType(AlertDialog), matching: find.text('确定')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('选择时间'), findsNothing);
+    expect(find.textContaining('10:30'), findsWidgets);
+    expect(tester.takeException(), isNull);
   });
   testWidgets('仅保存会写入真实数据库并返回上一页', (tester) async {
     useTallViewport(tester);

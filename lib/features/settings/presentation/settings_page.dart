@@ -1,11 +1,15 @@
-import 'dart:typed_data';
-
 import 'package:breast_milk/data/database/database_providers.dart';
+import 'package:breast_milk/features/home/presentation/home_page.dart';
+import 'package:breast_milk/features/intake/application/intake_service.dart';
+import 'package:breast_milk/features/inventory/presentation/inventory_page.dart';
+import 'package:breast_milk/features/settings/application/backup_file_gateway.dart';
 import 'package:breast_milk/features/settings/application/backup_service.dart';
 import 'package:breast_milk/features/settings/application/settings_store.dart';
 import 'package:breast_milk/features/settings/application/notification_service.dart';
-import 'package:file_picker/file_picker.dart';
+import 'package:breast_milk/features/statistics/presentation/statistics_page.dart';
+import 'package:breast_milk/shared/widgets/app_time_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -112,7 +116,7 @@ class SettingsPage extends ConsumerWidget {
     String current,
   ) async {
     final parts = current.split(':');
-    final picked = await showTimePicker(
+    final picked = await showAppTimePicker(
       context: context,
       initialTime: TimeOfDay(
         hour: int.tryParse(parts.first) ?? 9,
@@ -137,47 +141,148 @@ class SettingsPage extends ConsumerWidget {
   }
 
   Future<void> _export(BuildContext context, WidgetRef ref) async {
+    var busyOpen = true;
+    _showBusyDialog(context, '正在导出，请稍候…');
     try {
-      final json = await BackupService(ref.read(appDatabaseProvider))
-          .exportJson();
-      final path = await FilePicker.saveFile(
-        dialogTitle: '导出母乳数据',
+      final bytes = await BackupService(
+        ref.read(appDatabaseProvider),
+      ).exportJsonBytes();
+      if (!context.mounted) return;
+      // Close busy dialog before the system save picker appears.
+      _safePopBusy(context);
+      busyOpen = false;
+      final saved = await BackupFileGateway().saveJsonBytes(
+        bytes: bytes,
         fileName: 'dun_dun_dun_backup.json',
-        bytes: Uint8List.fromList(json.codeUnits),
       );
-      if (context.mounted && path != null) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('数据已导出')));
-      }
-    } catch (_) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(saved ? '数据已导出（UTF-8）' : '已取消导出')),
+      );
+    } on PlatformException catch (error) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('导出失败')));
+        if (busyOpen) _safePopBusy(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('导出失败：${error.message ?? error.code}')),
+        );
+      }
+    } catch (error) {
+      if (context.mounted) {
+        if (busyOpen) _safePopBusy(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('导出失败：$error')),
+        );
       }
     }
   }
 
   Future<void> _import(BuildContext context, WidgetRef ref) async {
     try {
-      final files = await FilePicker.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['json'],
-      );
-      if (files.isEmpty) return;
-      final bytes = await files.first.readAsBytes();
-      final count = await BackupService(
-        ref.read(appDatabaseProvider),
-        persistPreImport: true,
-      ).importJson(String.fromCharCodes(bytes));
+      // Prefer system file picker for large backups. No paste step required.
+      final bytes = await BackupFileGateway().pickJsonBytes();
+      if (bytes == null) {
+        // User canceled.
+        return;
+      }
+      if (!context.mounted) return;
+      await _importBytes(context, ref, bytes);
+    } on PlatformException catch (error) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('已合并 $count 项数据')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('导入失败：${error.message ?? error.code}'),
+          ),
+        );
       }
     } catch (_) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('导入失败，数据未改变')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('导入失败，数据未改变')),
+        );
       }
     }
+  }
+
+  Future<void> _importBytes(
+    BuildContext context,
+    WidgetRef ref,
+    Uint8List bytes,
+  ) async {
+    _showBusyDialog(context, '正在导入，请稍候…');
+    try {
+      final count = await BackupService(
+        ref.read(appDatabaseProvider),
+        persistPreImport: true,
+      ).importJson(BackupService.decodeBackupBytes(bytes));
+      ref
+        ..invalidate(homeInventorySummaryProvider)
+        ..invalidate(homeEarliestRecordProvider)
+        ..invalidate(homeRecordsProvider)
+        ..invalidate(inventoryRecordsProvider)
+        ..invalidate(statisticsSummaryProvider)
+        ..invalidate(statisticsRecordsProvider)
+        ..invalidate(intakeFoodTagsProvider);
+      if (context.mounted) {
+        _safePopBusy(context);
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('已合并 $count 项数据')));
+      }
+    } on BackupFailure catch (error) {
+      if (context.mounted) {
+        _safePopBusy(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(_backupFailureMessage(error))),
+        );
+      }
+    } catch (error) {
+      if (context.mounted) {
+        _safePopBusy(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('导入失败：$error')),
+        );
+      }
+    }
+  }
+
+  void _showBusyDialog(BuildContext context, String message) {
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => PopScope(
+        canPop: false,
+        child: Center(
+          child: Card(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const CircularProgressIndicator(),
+                  const SizedBox(height: 16),
+                  Text(message),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _safePopBusy(BuildContext context) {
+    final navigator = Navigator.of(context, rootNavigator: true);
+    if (navigator.canPop()) {
+      navigator.pop();
+    }
+  }
+
+  String _backupFailureMessage(BackupFailure failure) {
+    return switch (failure.code) {
+      'unsupported_schema' => '备份文件版本不受支持',
+      'invalid_json' => '备份文件已损坏或不是有效 JSON',
+      final code when code.startsWith('invalid_enum_') => '备份文件包含无法识别的状态值',
+      _ => '导入失败，数据未改变',
+    };
   }
 }
