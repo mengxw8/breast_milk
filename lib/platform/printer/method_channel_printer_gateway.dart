@@ -3,10 +3,11 @@ import 'package:breast_milk/platform/printer/printer_models.dart';
 import 'package:flutter/services.dart';
 
 class MethodChannelPrinterGateway implements PrinterGateway {
-  const MethodChannelPrinterGateway({
-    this._methodChannel = const MethodChannel(_methodChannelName),
-    this._eventChannel = const EventChannel(_eventChannelName),
-  });
+  MethodChannelPrinterGateway({
+    MethodChannel? methodChannel,
+    EventChannel? eventChannel,
+  }) : _methodChannel = methodChannel ?? const MethodChannel(_methodChannelName),
+       _eventChannel = eventChannel ?? const EventChannel(_eventChannelName);
 
   static const _methodChannelName = 'cn.mengxw.breast_milk/printer';
   static const _eventChannelName = 'cn.mengxw.breast_milk/printer_events';
@@ -14,11 +15,16 @@ class MethodChannelPrinterGateway implements PrinterGateway {
   final MethodChannel _methodChannel;
   final EventChannel _eventChannel;
 
-  @override
-  Stream<PrinterEvent> get events => _eventChannel
+  // One platform EventChannel subscription shared by all Dart listeners.
+  // Multiple receiveBroadcastStream() calls would cancel each other.
+  late final Stream<PrinterEvent> _events = _eventChannel
       .receiveBroadcastStream()
       .map((event) => PrinterEvent.fromMap(_asMap(event)))
-      .handleError((Object error) => throw _mapError(error));
+      .handleError((Object error) => throw _mapError(error))
+      .asBroadcastStream();
+
+  @override
+  Stream<PrinterEvent> get events => _events;
 
   @override
   Future<bool> hasPermissions() =>

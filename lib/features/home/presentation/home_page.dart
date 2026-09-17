@@ -19,10 +19,13 @@ final homePrinterStatusProvider = FutureProvider<PrinterStatus>((ref) {
   return ref.watch(printerGatewayProvider).getStatus();
 });
 
+/// Keeps the home printer icon in sync with Bluetooth connect/disconnect.
 final homePrinterRefreshProvider = Provider<void>((ref) {
   if (Platform.environment['FLUTTER_TEST'] == 'true') return;
-  final subscription = ref.watch(printerGatewayProvider).events.listen((event) {
-    if (event.type == PrinterEventType.connection) {
+  final gateway = ref.watch(printerGatewayProvider);
+  final subscription = gateway.events.listen((event) {
+    if (event.type == PrinterEventType.connection ||
+        event.type == PrinterEventType.scan) {
       ref.invalidate(homePrinterStatusProvider);
     }
   });

@@ -12,7 +12,7 @@ void main() {
 
   setUp(() {
     calls.clear();
-    gateway = const MethodChannelPrinterGateway(methodChannel: channel);
+    gateway = MethodChannelPrinterGateway(methodChannel: channel);
   });
 
   tearDown(() {

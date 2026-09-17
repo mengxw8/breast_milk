@@ -559,18 +559,20 @@ class _LabelPreview extends StatelessWidget {
                   border: Border.all(color: Colors.black87, width: 2),
                 ),
                 child: Padding(
-                  padding: const EdgeInsets.all(10),
+                  // Match printer: right/bottom frame inset a bit more than left/top.
+                  padding: const EdgeInsets.fromLTRB(12, 10, 16, 14),
                   child: Column(
                     children: [
                       Expanded(
                         child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Expanded(
-                              child: Center(
-                                child: Icon(Icons.qr_code_2, size: 104),
-                              ),
+                            // Match printer: QR nudged right vs left edge.
+                            const Padding(
+                              padding: EdgeInsets.only(left: 6, top: 8),
+                              child: Icon(Icons.qr_code_2, size: 104),
                             ),
-                            const SizedBox(width: 10),
+                            const SizedBox(width: 12),
                             Expanded(
                               child: DefaultTextStyle(
                                 style: const TextStyle(
@@ -600,11 +602,19 @@ class _LabelPreview extends StatelessWidget {
                           ],
                         ),
                       ),
-                      Text(
-                        previewId,
-                        style: const TextStyle(
-                          color: Colors.black,
-                          fontSize: 11,
+                      // Match printer: id nudged up under the QR/content block.
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Padding(
+                          padding: const EdgeInsets.only(left: 2, top: 2),
+                          child: Text(
+                            previewId,
+                            style: const TextStyle(
+                              color: Colors.black,
+                              fontSize: 11,
+                              height: 1.1,
+                            ),
+                          ),
                         ),
                       ),
                     ],
