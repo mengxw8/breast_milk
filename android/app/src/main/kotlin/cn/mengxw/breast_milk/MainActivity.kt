@@ -1,6 +1,8 @@
 package cn.mengxw.breast_milk
 
+import android.os.Bundle
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import cn.mengxw.breast_milk.backup.BackupFileChannel
 import cn.mengxw.breast_milk.printer.PrinterChannel
 import io.flutter.embedding.android.FlutterFragmentActivity
@@ -13,6 +15,7 @@ import io.flutter.embedding.engine.FlutterEngine
 class MainActivity : FlutterFragmentActivity() {
     private lateinit var printerChannel: PrinterChannel
     private var backupFileChannel: BackupFileChannel? = null
+    private var flutterUiReady = false
 
     // Launchers must be registered before the Activity reaches STARTED.
     private val getContentLauncher =
@@ -32,8 +35,28 @@ class MainActivity : FlutterFragmentActivity() {
             backupFileChannel?.onCreatedUri(uri)
         }
 
+    override fun onCreate(savedInstanceState: Bundle?) {
+        // Must run before super.onCreate so the system splash stays up until
+        // Flutter paints, instead of flashing a blank activity window.
+        val splashScreen = installSplashScreen()
+        splashScreen.setKeepOnScreenCondition { !flutterUiReady }
+        super.onCreate(savedInstanceState)
+    }
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        flutterEngine.renderer.addIsDisplayingFlutterUiListener(
+            object : io.flutter.embedding.engine.renderer.FlutterUiDisplayListener {
+                override fun onFlutterUiDisplayed() {
+                    flutterUiReady = true
+                    flutterEngine.renderer.removeIsDisplayingFlutterUiListener(this)
+                }
+
+                override fun onFlutterUiNoLongerDisplayed() {
+                    // no-op
+                }
+            },
+        )
         printerChannel = PrinterChannel(
             activity = this,
             messenger = flutterEngine.dartExecutor.binaryMessenger,

@@ -3,10 +3,8 @@
     <!-- Sampled from the brand artwork so the launcher icon, the native
          launch background and the Flutter splash all agree. -->
     <color name="brand_coral">#D97268</color>
-    <!-- Shown for the whole cold start: Android 12+ draws its system splash as
-         a flat colour and cannot be given a bitmap. This is the top row of
-         assets/branding/dun_dun_dun_splash.png, so the artwork takes over
-         without a seam. Keep in step with SPLASH_TOP in
-         tools/branding/generate_branding.py. -->
-    <color name="brand_splash_background">#FFF8F1</color>
+    <!-- Android 12+ system splash is flat colour + centred icon only.
+         Use a warm mid-tone from the illustration so cold start never reads
+         as a blank white screen. -->
+    <color name="brand_splash_background">#D6AC8C</color>
 </resources>

@@ -1,20 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Android 12+ always draws a system splash screen and always wants an
-         icon for it. There is no way to opt out, so the icon is a fully
-         transparent placeholder and the background is the splash artwork's
-         own top colour - the net effect is "no logo, just the picture".
-
-         windowSplashScreenIconBackgroundColor is pinned to the same colour so
-         that if the platform draws an icon backing plate anyway, it is
-         invisible rather than a stray circle. -->
-    <style name="LaunchTheme" parent="@android:style/Theme.Material.Light.NoActionBar">
+    <!-- API 31+: same LaunchTheme as values/, using Theme.SplashScreen. -->
+    <style name="LaunchTheme" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/brand_splash_background</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/splash_icon</item>
+        <item name="windowSplashScreenIconBackgroundColor">@color/brand_splash_background</item>
+        <item name="windowSplashScreenAnimationDuration">200</item>
+        <item name="postSplashScreenTheme">@style/NormalTheme</item>
         <item name="android:windowSplashScreenBackground">@color/brand_splash_background</item>
-        <item name="android:windowSplashScreenAnimatedIcon">@drawable/transparent_splash_icon</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/splash_icon</item>
         <item name="android:windowSplashScreenIconBackgroundColor">@color/brand_splash_background</item>
         <item name="android:windowBackground">@drawable/launch_background</item>
     </style>
     <style name="NormalTheme" parent="@android:style/Theme.Light.NoTitleBar">
         <item name="android:windowBackground">@drawable/launch_background</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
     </style>
 </resources>

@@ -18,9 +18,14 @@ void main() {
         matching: find.byType(Image),
       ),
     );
-    expect(splash.image, const AssetImage(BrandLaunchPage.assetName));
-    // BoxFit.cover, not contain: contain letterboxed the artwork and left a
-    // bar across the top and bottom of the screen.
+    // May be AssetImage or ResizeImage(AssetImage) for decode-size optimization.
+    final image = splash.image;
+    final asset = image is ResizeImage
+        ? image.imageProvider
+        : image;
+    expect(asset, isA<AssetImage>());
+    expect((asset as AssetImage).assetName, BrandLaunchPage.assetName);
+    // BoxFit.cover fills the screen without letterboxing or stretching.
     expect(splash.fit, BoxFit.cover);
 
     // Still holding mid-way through the splash.

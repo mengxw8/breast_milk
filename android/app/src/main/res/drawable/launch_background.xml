@@ -1,23 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Window background while the Android process starts - i.e. everything shown
-     before Flutter paints its first frame.
+<!-- Window background while the Android process starts - shown before Flutter
+     paints its first frame.
 
-     This is the real splash artwork, not a flat colour. Cold start spends a
-     noticeable moment in here (engine bring-up, Dart VM, first frame), and a
-     flat backdrop for that whole time reads as a blank/white screen. Painting
-     the artwork here instead means the illustration is on screen from the
-     first window frame, and the hand-off to Flutter's own BrandLaunchPage -
-     which draws the identical asset with BoxFit.cover - has no seam.
-
-     gravity="fill" stretches to the window. It is a pixel-exact 1080x2400
-     match on phones of that class; the colour layer underneath is an exact
-     match for the artwork's top band, so any letterboxing on an unusual
-     aspect ratio is invisible. -->
+     Portrait cover (no stretch): scale to fill height, center horizontally and
+     clip the sides. Matches Flutter BrandLaunchPage BoxFit.cover. -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
     <item android:drawable="@color/brand_splash_background" />
     <item>
         <bitmap
-            android:gravity="fill"
+            android:gravity="fill_vertical|center_horizontal"
             android:src="@drawable/splash_art" />
     </item>
 </layer-list>

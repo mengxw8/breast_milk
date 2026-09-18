@@ -1,4 +1,4 @@
-import 'dart:ui';
+import 'dart:ui' show PlatformDispatcher;
 
 import 'package:breast_milk/app/app.dart';
 import 'package:flutter/material.dart';
@@ -9,6 +9,8 @@ Future<void> bootstrap() async {
   WidgetsFlutterBinding.ensureInitialized();
   _installErrorReporting();
 
+  // Do NOT await heavy image decode here — that delays the first Flutter frame
+  // and prolongs the Android 12 system splash (flat colour). runApp ASAP.
   await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
