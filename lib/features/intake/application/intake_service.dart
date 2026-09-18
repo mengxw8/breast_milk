@@ -79,6 +79,10 @@ class IntakeService {
     return repository.saveFoodTag(name: name, atUtc: _nowUtc());
   }
 
+  Future<void> deleteFoodTag(String id) {
+    return repository.deleteFoodTag(id);
+  }
+
   Future<IntakeResult> _print(
     MilkRecord record, {
     required String foodSummary,

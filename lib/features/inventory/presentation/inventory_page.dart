@@ -189,10 +189,10 @@ class _InventoryPageState extends ConsumerState<InventoryPage> {
 
   Future<void> _reprintRecord(MilkRecord record) async {
     try {
-      final tags = await ref.read(milkRepositoryProvider).listFoodTags();
-      final foodNames = tags
-          .where((tag) => record.foodTagIds.contains(tag.id))
-          .map((tag) => tag.name);
+      final tags = await ref
+          .read(milkRepositoryProvider)
+          .foodTagsByIds(record.foodTagIds);
+      final foodNames = tags.map((tag) => tag.name);
       final result = await ref
           .read(intakeServiceProvider)
           .reprint(record, foodNames: foodNames);

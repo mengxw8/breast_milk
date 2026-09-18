@@ -33,7 +33,14 @@ abstract interface class MilkRepository {
 
   Future<FoodTag> saveFoodTag({required String name, required DateTime atUtc});
 
+  /// Soft-delete: hide from common list, keep record associations.
+  Future<void> deleteFoodTag(String id);
+
+  /// Active common tags for intake / settings management.
   Future<List<FoodTag>> listFoodTags();
+
+  /// Resolve tags by id, including soft-deleted ones (for record display).
+  Future<List<FoodTag>> foodTagsByIds(Iterable<String> ids);
 }
 
 class CreateMilkRecordCommand {

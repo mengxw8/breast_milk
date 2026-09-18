@@ -51,6 +51,9 @@ class FoodTags extends Table {
   IntColumn get useCount => integer()
       .withDefault(const Constant(0))
       .check(const CustomExpression<bool>('use_count >= 0'))();
+  /// Soft-delete: hidden from common lists, kept for historical record links.
+  BoolColumn get isActive =>
+      boolean().withDefault(const Constant(true))();
 
   @override
   Set<Column<Object>> get primaryKey => {id};

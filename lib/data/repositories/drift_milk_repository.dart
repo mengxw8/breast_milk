@@ -374,7 +374,22 @@ class DriftMilkRepository implements MilkRepository {
     final existing = await (database.select(
       database.foodTags,
     )..where((table) => table.name.equals(normalizedName))).getSingleOrNull();
-    if (existing != null) return _mapFoodTag(existing);
+    if (existing != null) {
+      if (existing.isActive) return _mapFoodTag(existing);
+      // Re-adding a soft-deleted name restores it to the common list.
+      await (database.update(
+        database.foodTags,
+      )..where((table) => table.id.equals(existing.id))).write(
+        FoodTagsCompanion(
+          isActive: const Value(true),
+          updatedAtUtc: Value(atUtc),
+        ),
+      );
+      final restored = await (database.select(
+        database.foodTags,
+      )..where((table) => table.id.equals(existing.id))).getSingle();
+      return _mapFoodTag(restored);
+    }
 
     var sequence = 0;
     String id;
@@ -390,6 +405,7 @@ class DriftMilkRepository implements MilkRepository {
             name: normalizedName,
             createdAtUtc: atUtc,
             updatedAtUtc: atUtc,
+            isActive: const Value(true),
           ),
         );
     final created = await (database.select(
@@ -399,15 +415,54 @@ class DriftMilkRepository implements MilkRepository {
   }
 
   @override
+  Future<void> deleteFoodTag(String id) async {
+    // Soft-delete only: keep milk_food_tags so historical records retain labels.
+    final updated = await (database.update(
+      database.foodTags,
+    )..where((table) => table.id.equals(id) & table.isActive.equals(true)))
+        .write(
+      FoodTagsCompanion(
+        isActive: const Value(false),
+        updatedAtUtc: Value(DateTime.now().toUtc()),
+      ),
+    );
+    if (updated == 0) {
+      final exists = await (database.select(
+        database.foodTags,
+      )..where((table) => table.id.equals(id))).getSingleOrNull();
+      if (exists == null) {
+        throw const MilkRepositoryFailure('food_tag_not_found');
+      }
+      // Already inactive — treat as success for idempotent UI deletes.
+    }
+  }
+
+  @override
   Future<List<domain.FoodTag>> listFoodTags() async {
     final rows =
-        await (database.select(database.foodTags)..orderBy([
-              (table) => OrderingTerm.desc(table.lastUsedAtUtc),
-              (table) => OrderingTerm.desc(table.useCount),
-              (table) => OrderingTerm.asc(table.name),
-            ]))
+        await (database.select(database.foodTags)
+              ..where((table) => table.isActive.equals(true))
+              ..orderBy([
+                (table) => OrderingTerm.desc(table.lastUsedAtUtc),
+                (table) => OrderingTerm.desc(table.useCount),
+                (table) => OrderingTerm.asc(table.name),
+              ]))
             .get();
     return rows.map(_mapFoodTag).toList(growable: false);
+  }
+
+  @override
+  Future<List<domain.FoodTag>> foodTagsByIds(Iterable<String> ids) async {
+    final idList = ids.toSet().toList(growable: false);
+    if (idList.isEmpty) return const [];
+    final rows = await (database.select(
+      database.foodTags,
+    )..where((table) => table.id.isIn(idList))).get();
+    final byId = {for (final row in rows) row.id: row};
+    return idList
+        .where(byId.containsKey)
+        .map((id) => _mapFoodTag(byId[id]!))
+        .toList(growable: false);
   }
 
   Future<bool> _idExists(String id) async {
@@ -518,6 +573,7 @@ class DriftMilkRepository implements MilkRepository {
     updatedAtUtc: row.updatedAtUtc.toUtc(),
     lastUsedAtUtc: row.lastUsedAtUtc?.toUtc(),
     useCount: row.useCount,
+    isActive: row.isActive,
   );
 
   Future<void> _replaceFoodTags(

@@ -194,6 +194,7 @@ class BackupService {
               updatedAtUtc: Value(importedUpdatedAt),
               lastUsedAtUtc: Value(_date(tag['lastUsedAtUtc'])),
               useCount: Value(tag['useCount'] as int? ?? byId.useCount),
+              isActive: Value(tag['isActive'] as bool? ?? byId.isActive),
             ),
           );
           count++;
@@ -215,6 +216,7 @@ class BackupService {
               useCount: Value(
                 _maxInt(tag['useCount'] as int? ?? 0, byName.useCount),
               ),
+              isActive: Value(tag['isActive'] as bool? ?? byName.isActive),
             ),
           );
           count++;
@@ -232,6 +234,7 @@ class BackupService {
                 updatedAtUtc: importedUpdatedAt,
                 lastUsedAtUtc: Value(_date(tag['lastUsedAtUtc'])),
                 useCount: Value(tag['useCount'] as int? ?? 0),
+                isActive: Value(tag['isActive'] as bool? ?? true),
               ),
             );
         count++;

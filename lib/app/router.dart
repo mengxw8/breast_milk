@@ -4,6 +4,7 @@ import 'package:breast_milk/features/intake/presentation/intake_page.dart';
 import 'package:breast_milk/features/inventory/presentation/inventory_page.dart';
 import 'package:breast_milk/features/printer_debug/presentation/printer_debug_page.dart';
 import 'package:breast_milk/features/scanner/presentation/scanner_page.dart';
+import 'package:breast_milk/features/settings/presentation/food_tags_settings_page.dart';
 import 'package:breast_milk/features/settings/presentation/settings_page.dart';
 import 'package:breast_milk/features/statistics/presentation/statistics_page.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -71,6 +72,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                     path: 'printer',
                     name: PrinterDebugPage.routeName,
                     builder: (context, state) => const PrinterDebugPage(),
+                  ),
+                  GoRoute(
+                    path: 'food-tags',
+                    name: FoodTagsSettingsPage.routeName,
+                    builder: (context, state) => const FoodTagsSettingsPage(),
                   ),
                 ],
               ),

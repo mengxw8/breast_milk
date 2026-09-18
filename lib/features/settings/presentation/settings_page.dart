@@ -41,6 +41,14 @@ class SettingsPage extends ConsumerWidget {
               trailing: const Icon(Icons.chevron_right),
               onTap: () => context.push('/settings/printer'),
             ),
+            ListTile(
+              contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+              leading: const Icon(Icons.restaurant_outlined),
+              title: const Text('常用食物'),
+              subtitle: const Text('管理入库时的常用食物标签'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => context.push('/settings/food-tags'),
+            ),
             const Divider(),
             SwitchListTile(
               contentPadding: const EdgeInsets.symmetric(horizontal: 4),

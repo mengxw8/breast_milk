@@ -144,6 +144,33 @@ void main() {
     expect((await repository.pendingPrints()).single.id, record.id);
   });
 
+  test('删除常用食物仅从列表隐藏并保留记录关联', () async {
+    final now = DateTime.utc(2026, 9, 10);
+    final tag = await repository.saveFoodTag(name: '燕麦', atUtc: now);
+    final record = await repository.create(
+      _createCommand(
+        storedAtUtc: now,
+        createdAtUtc: now,
+        foodTagIds: [tag.id],
+      ),
+    );
+    expect((await repository.findById(record.id))!.foodTagIds, [tag.id]);
+
+    await repository.deleteFoodTag(tag.id);
+
+    expect(await repository.listFoodTags(), isEmpty);
+    expect((await repository.findById(record.id))!.foodTagIds, [tag.id]);
+    final resolved = await repository.foodTagsByIds([tag.id]);
+    expect(resolved.single.name, '燕麦');
+    expect(resolved.single.isActive, isFalse);
+
+    // Re-adding the same name restores the common list entry.
+    final restored = await repository.saveFoodTag(name: '燕麦', atUtc: now);
+    expect(restored.id, tag.id);
+    expect(restored.isActive, isTrue);
+    expect((await repository.listFoodTags()).single.id, tag.id);
+  });
+
   test('按状态、储存方式、食物、时间和文本组合筛选并按期限排序', () async {
     final now = DateTime.utc(2026, 9, 10);
     final egg = await repository.saveFoodTag(name: '鸡蛋', atUtc: now);

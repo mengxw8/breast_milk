@@ -1616,6 +1616,21 @@ class $FoodTagsTable extends FoodTags
     requiredDuringInsert: false,
     defaultValue: const Constant(0),
   );
+  static const VerificationMeta _isActiveMeta = const VerificationMeta(
+    'isActive',
+  );
+  @override
+  late final GeneratedColumn<bool> isActive = GeneratedColumn<bool>(
+    'is_active',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_active" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -1624,6 +1639,7 @@ class $FoodTagsTable extends FoodTags
     updatedAtUtc,
     lastUsedAtUtc,
     useCount,
+    isActive,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -1687,6 +1703,12 @@ class $FoodTagsTable extends FoodTags
         useCount.isAcceptableOrUnknown(data['use_count']!, _useCountMeta),
       );
     }
+    if (data.containsKey('is_active')) {
+      context.handle(
+        _isActiveMeta,
+        isActive.isAcceptableOrUnknown(data['is_active']!, _isActiveMeta),
+      );
+    }
     return context;
   }
 
@@ -1720,6 +1742,10 @@ class $FoodTagsTable extends FoodTags
         DriftSqlType.int,
         data['${effectivePrefix}use_count'],
       )!,
+      isActive: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_active'],
+      )!,
     );
   }
 
@@ -1736,6 +1762,9 @@ class FoodTagRow extends DataClass implements Insertable<FoodTagRow> {
   final DateTime updatedAtUtc;
   final DateTime? lastUsedAtUtc;
   final int useCount;
+
+  /// Soft-delete: hidden from common lists, kept for historical record links.
+  final bool isActive;
   const FoodTagRow({
     required this.id,
     required this.name,
@@ -1743,6 +1772,7 @@ class FoodTagRow extends DataClass implements Insertable<FoodTagRow> {
     required this.updatedAtUtc,
     this.lastUsedAtUtc,
     required this.useCount,
+    required this.isActive,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -1755,6 +1785,7 @@ class FoodTagRow extends DataClass implements Insertable<FoodTagRow> {
       map['last_used_at_utc'] = Variable<DateTime>(lastUsedAtUtc);
     }
     map['use_count'] = Variable<int>(useCount);
+    map['is_active'] = Variable<bool>(isActive);
     return map;
   }
 
@@ -1768,6 +1799,7 @@ class FoodTagRow extends DataClass implements Insertable<FoodTagRow> {
           ? const Value.absent()
           : Value(lastUsedAtUtc),
       useCount: Value(useCount),
+      isActive: Value(isActive),
     );
   }
 
@@ -1783,6 +1815,7 @@ class FoodTagRow extends DataClass implements Insertable<FoodTagRow> {
       updatedAtUtc: serializer.fromJson<DateTime>(json['updatedAtUtc']),
       lastUsedAtUtc: serializer.fromJson<DateTime?>(json['lastUsedAtUtc']),
       useCount: serializer.fromJson<int>(json['useCount']),
+      isActive: serializer.fromJson<bool>(json['isActive']),
     );
   }
   @override
@@ -1795,6 +1828,7 @@ class FoodTagRow extends DataClass implements Insertable<FoodTagRow> {
       'updatedAtUtc': serializer.toJson<DateTime>(updatedAtUtc),
       'lastUsedAtUtc': serializer.toJson<DateTime?>(lastUsedAtUtc),
       'useCount': serializer.toJson<int>(useCount),
+      'isActive': serializer.toJson<bool>(isActive),
     };
   }
 
@@ -1805,6 +1839,7 @@ class FoodTagRow extends DataClass implements Insertable<FoodTagRow> {
     DateTime? updatedAtUtc,
     Value<DateTime?> lastUsedAtUtc = const Value.absent(),
     int? useCount,
+    bool? isActive,
   }) => FoodTagRow(
     id: id ?? this.id,
     name: name ?? this.name,
@@ -1814,6 +1849,7 @@ class FoodTagRow extends DataClass implements Insertable<FoodTagRow> {
         ? lastUsedAtUtc.value
         : this.lastUsedAtUtc,
     useCount: useCount ?? this.useCount,
+    isActive: isActive ?? this.isActive,
   );
   FoodTagRow copyWithCompanion(FoodTagsCompanion data) {
     return FoodTagRow(
@@ -1829,6 +1865,7 @@ class FoodTagRow extends DataClass implements Insertable<FoodTagRow> {
           ? data.lastUsedAtUtc.value
           : this.lastUsedAtUtc,
       useCount: data.useCount.present ? data.useCount.value : this.useCount,
+      isActive: data.isActive.present ? data.isActive.value : this.isActive,
     );
   }
 
@@ -1840,7 +1877,8 @@ class FoodTagRow extends DataClass implements Insertable<FoodTagRow> {
           ..write('createdAtUtc: $createdAtUtc, ')
           ..write('updatedAtUtc: $updatedAtUtc, ')
           ..write('lastUsedAtUtc: $lastUsedAtUtc, ')
-          ..write('useCount: $useCount')
+          ..write('useCount: $useCount, ')
+          ..write('isActive: $isActive')
           ..write(')'))
         .toString();
   }
@@ -1853,6 +1891,7 @@ class FoodTagRow extends DataClass implements Insertable<FoodTagRow> {
     updatedAtUtc,
     lastUsedAtUtc,
     useCount,
+    isActive,
   );
   @override
   bool operator ==(Object other) =>
@@ -1863,7 +1902,8 @@ class FoodTagRow extends DataClass implements Insertable<FoodTagRow> {
           other.createdAtUtc == this.createdAtUtc &&
           other.updatedAtUtc == this.updatedAtUtc &&
           other.lastUsedAtUtc == this.lastUsedAtUtc &&
-          other.useCount == this.useCount);
+          other.useCount == this.useCount &&
+          other.isActive == this.isActive);
 }
 
 class FoodTagsCompanion extends UpdateCompanion<FoodTagRow> {
@@ -1873,6 +1913,7 @@ class FoodTagsCompanion extends UpdateCompanion<FoodTagRow> {
   final Value<DateTime> updatedAtUtc;
   final Value<DateTime?> lastUsedAtUtc;
   final Value<int> useCount;
+  final Value<bool> isActive;
   final Value<int> rowid;
   const FoodTagsCompanion({
     this.id = const Value.absent(),
@@ -1881,6 +1922,7 @@ class FoodTagsCompanion extends UpdateCompanion<FoodTagRow> {
     this.updatedAtUtc = const Value.absent(),
     this.lastUsedAtUtc = const Value.absent(),
     this.useCount = const Value.absent(),
+    this.isActive = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   FoodTagsCompanion.insert({
@@ -1890,6 +1932,7 @@ class FoodTagsCompanion extends UpdateCompanion<FoodTagRow> {
     required DateTime updatedAtUtc,
     this.lastUsedAtUtc = const Value.absent(),
     this.useCount = const Value.absent(),
+    this.isActive = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        name = Value(name),
@@ -1902,6 +1945,7 @@ class FoodTagsCompanion extends UpdateCompanion<FoodTagRow> {
     Expression<DateTime>? updatedAtUtc,
     Expression<DateTime>? lastUsedAtUtc,
     Expression<int>? useCount,
+    Expression<bool>? isActive,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -1911,6 +1955,7 @@ class FoodTagsCompanion extends UpdateCompanion<FoodTagRow> {
       if (updatedAtUtc != null) 'updated_at_utc': updatedAtUtc,
       if (lastUsedAtUtc != null) 'last_used_at_utc': lastUsedAtUtc,
       if (useCount != null) 'use_count': useCount,
+      if (isActive != null) 'is_active': isActive,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -1922,6 +1967,7 @@ class FoodTagsCompanion extends UpdateCompanion<FoodTagRow> {
     Value<DateTime>? updatedAtUtc,
     Value<DateTime?>? lastUsedAtUtc,
     Value<int>? useCount,
+    Value<bool>? isActive,
     Value<int>? rowid,
   }) {
     return FoodTagsCompanion(
@@ -1931,6 +1977,7 @@ class FoodTagsCompanion extends UpdateCompanion<FoodTagRow> {
       updatedAtUtc: updatedAtUtc ?? this.updatedAtUtc,
       lastUsedAtUtc: lastUsedAtUtc ?? this.lastUsedAtUtc,
       useCount: useCount ?? this.useCount,
+      isActive: isActive ?? this.isActive,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -1956,6 +2003,9 @@ class FoodTagsCompanion extends UpdateCompanion<FoodTagRow> {
     if (useCount.present) {
       map['use_count'] = Variable<int>(useCount.value);
     }
+    if (isActive.present) {
+      map['is_active'] = Variable<bool>(isActive.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -1971,6 +2021,7 @@ class FoodTagsCompanion extends UpdateCompanion<FoodTagRow> {
           ..write('updatedAtUtc: $updatedAtUtc, ')
           ..write('lastUsedAtUtc: $lastUsedAtUtc, ')
           ..write('useCount: $useCount, ')
+          ..write('isActive: $isActive, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -3558,6 +3609,7 @@ typedef $$FoodTagsTableCreateCompanionBuilder = FoodTagsCompanion Function({
   required DateTime updatedAtUtc,
   Value<DateTime?> lastUsedAtUtc,
   Value<int> useCount,
+  Value<bool> isActive,
   Value<int> rowid,
 });
 typedef $$FoodTagsTableUpdateCompanionBuilder = FoodTagsCompanion Function({
@@ -3567,6 +3619,7 @@ typedef $$FoodTagsTableUpdateCompanionBuilder = FoodTagsCompanion Function({
   Value<DateTime> updatedAtUtc,
   Value<DateTime?> lastUsedAtUtc,
   Value<int> useCount,
+  Value<bool> isActive,
   Value<int> rowid,
 });
 
@@ -3629,6 +3682,11 @@ class $$FoodTagsTableFilterComposer
 
   ColumnFilters<int> get useCount => $composableBuilder(
     column: $table.useCount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isActive => $composableBuilder(
+    column: $table.isActive,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -3696,6 +3754,11 @@ class $$FoodTagsTableOrderingComposer
     column: $table.useCount,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<bool> get isActive => $composableBuilder(
+    column: $table.isActive,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$FoodTagsTableAnnotationComposer
@@ -3730,6 +3793,9 @@ class $$FoodTagsTableAnnotationComposer
 
   GeneratedColumn<int> get useCount =>
       $composableBuilder(column: $table.useCount, builder: (column) => column);
+
+  GeneratedColumn<bool> get isActive =>
+      $composableBuilder(column: $table.isActive, builder: (column) => column);
 
   Expression<T> milkFoodTagsRefs<T extends Object>(
     Expression<T> Function($$MilkFoodTagsTableAnnotationComposer a) f,
@@ -3791,6 +3857,7 @@ class $$FoodTagsTableTableManager
                 Value<DateTime> updatedAtUtc = const Value.absent(),
                 Value<DateTime?> lastUsedAtUtc = const Value.absent(),
                 Value<int> useCount = const Value.absent(),
+                Value<bool> isActive = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => FoodTagsCompanion(
                 id: id,
@@ -3799,6 +3866,7 @@ class $$FoodTagsTableTableManager
                 updatedAtUtc: updatedAtUtc,
                 lastUsedAtUtc: lastUsedAtUtc,
                 useCount: useCount,
+                isActive: isActive,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -3809,6 +3877,7 @@ class $$FoodTagsTableTableManager
                 required DateTime updatedAtUtc,
                 Value<DateTime?> lastUsedAtUtc = const Value.absent(),
                 Value<int> useCount = const Value.absent(),
+                Value<bool> isActive = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => FoodTagsCompanion.insert(
                 id: id,
@@ -3817,6 +3886,7 @@ class $$FoodTagsTableTableManager
                 updatedAtUtc: updatedAtUtc,
                 lastUsedAtUtc: lastUsedAtUtc,
                 useCount: useCount,
+                isActive: isActive,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

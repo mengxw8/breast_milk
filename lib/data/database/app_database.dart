@@ -19,11 +19,16 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
     onCreate: (migrator) => migrator.createAll(),
+    onUpgrade: (migrator, from, to) async {
+      if (from < 2) {
+        await migrator.addColumn(foodTags, foodTags.isActive);
+      }
+    },
     beforeOpen: (details) async {
       await customStatement('PRAGMA foreign_keys = ON');
     },

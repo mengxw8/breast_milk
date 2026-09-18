@@ -6,6 +6,7 @@ class FoodTag {
     required this.updatedAtUtc,
     this.lastUsedAtUtc,
     this.useCount = 0,
+    this.isActive = true,
   }) : assert(name.trim().isNotEmpty),
        assert(useCount >= 0),
        assert(createdAtUtc.isUtc),
@@ -18,4 +19,7 @@ class FoodTag {
   final DateTime updatedAtUtc;
   final DateTime? lastUsedAtUtc;
   final int useCount;
+
+  /// False when removed from the common list; historical links still resolve.
+  final bool isActive;
 }
