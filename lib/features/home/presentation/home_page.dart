@@ -157,14 +157,25 @@ class HomePage extends ConsumerWidget {
                   ),
                   const SizedBox(height: 8),
                   earliest.when(
-                    data: (record) => Text(
-                      record == null
-                          ? '入库后会显示最早需要使用的日期'
-                          : '最早需使用：${DateFormat('M月d日 HH:mm').format((record.bestUseAtUtc ?? record.expiresAtUtc).toLocal())}',
-                      style: theme.textTheme.bodyMedium?.copyWith(
+                    data: (record) {
+                      final style = theme.textTheme.bodyMedium?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
+                      );
+                      if (record == null) {
+                        return Text(
+                          '入库后会显示最早需要使用的日期',
+                          style: style,
+                        );
+                      }
+                      final due = DateFormat('M月d日 HH:mm').format(
+                        (record.bestUseAtUtc ?? record.expiresAtUtc)
+                            .toLocal(),
+                      );
+                      return Text(
+                        '最早需使用：$due · ${record.id} · ${record.amountMl} mL',
+                        style: style,
+                      );
+                    },
                     error: (_, _) => Text(
                       '期限信息暂不可用',
                       style: theme.textTheme.bodyMedium?.copyWith(
