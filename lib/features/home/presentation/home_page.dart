@@ -172,7 +172,7 @@ class HomePage extends ConsumerWidget {
                             .toLocal(),
                       );
                       return Text(
-                        '最早需使用：$due · ${record.id} · ${record.amountMl} mL',
+                        '最早需使用：\n$due\n${record.id} · ${record.amountMl} mL',
                         style: style,
                       );
                     },
