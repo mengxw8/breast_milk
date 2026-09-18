@@ -167,12 +167,12 @@ class HomePage extends ConsumerWidget {
                           style: style,
                         );
                       }
-                      final due = DateFormat('M月d日 HH:mm').format(
+                      final due = DateFormat('yyyy年M月d日 HH:mm').format(
                         (record.bestUseAtUtc ?? record.expiresAtUtc)
                             .toLocal(),
                       );
                       return Text(
-                        '最早需使用：\n$due\n${record.id} · ${record.amountMl} mL',
+                        '最早到期：\n$due\n${record.id} · ${record.amountMl} mL',
                         style: style,
                       );
                     },
