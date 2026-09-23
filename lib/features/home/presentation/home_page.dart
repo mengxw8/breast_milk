@@ -15,6 +15,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+String _formatMilkAmount(int amountMl) =>
+    NumberFormat('#,###').format(amountMl);
+
 final homePrinterStatusProvider = FutureProvider<PrinterStatus>((ref) {
   return ref.watch(printerGatewayProvider).getStatus();
 });
@@ -145,7 +148,7 @@ class HomePage extends ConsumerWidget {
                           style: theme.textTheme.headlineSmall,
                         ),
                         Text(
-                          '${value.available.totalMl} mL',
+                          '${_formatMilkAmount(value.available.totalMl)} mL',
                           style: theme.textTheme.headlineSmall,
                         ),
                       ],
@@ -162,17 +165,13 @@ class HomePage extends ConsumerWidget {
                         color: theme.colorScheme.onSurfaceVariant,
                       );
                       if (record == null) {
-                        return Text(
-                          '入库后会显示最早需要使用的日期',
-                          style: style,
-                        );
+                        return Text('入库后会显示最早需要使用的日期', style: style);
                       }
                       final due = DateFormat('yyyy年M月d日 HH:mm').format(
-                        (record.bestUseAtUtc ?? record.expiresAtUtc)
-                            .toLocal(),
+                        (record.bestUseAtUtc ?? record.expiresAtUtc).toLocal(),
                       );
                       return Text(
-                        '最早到期：\n$due\n${record.id} · ${record.amountMl} mL',
+                        '最早到期：\n$due\n${record.id} · ${_formatMilkAmount(record.amountMl)} mL',
                         style: style,
                       );
                     },
@@ -314,7 +313,7 @@ class _PriorityCard extends StatelessWidget {
               ? Icons.schedule_outlined
               : Icons.check_circle_outline,
         ),
-        title: Text('${record.amountMl} mL · ${record.id}'),
+        title: Text('${_formatMilkAmount(record.amountMl)} mL · ${record.id}'),
         subtitle: Text(
           '入库 ${DateFormat('M月d日 HH:mm').format(record.storedAtUtc.toLocal())} · $label',
         ),
