@@ -5,6 +5,8 @@ import 'package:breast_milk/domain/models/milk_enums.dart';
 import 'package:breast_milk/domain/models/milk_record.dart';
 import 'package:breast_milk/domain/repositories/milk_repository.dart';
 import 'package:breast_milk/domain/services/inventory_calculator.dart';
+import 'package:breast_milk/domain/services/weekly_milk_flow.dart';
+import 'package:breast_milk/features/statistics/presentation/weekly_flow_chart.dart';
 import 'package:breast_milk/shared/widgets/app_empty_state.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -56,7 +58,12 @@ class StatisticsPage extends ConsumerWidget {
             message: '请稍后重试。',
           ),
           data: (value) {
-            if (value.physical.bagCount == 0) {
+            final hasRecords =
+                value.physical.bagCount +
+                    value.checkedOut.bagCount +
+                    value.discarded.bagCount >
+                0;
+            if (!hasRecords) {
               return const AppEmptyState(
                 icon: Icons.bar_chart_rounded,
                 title: '暂无统计数据',
@@ -72,6 +79,21 @@ class StatisticsPage extends ConsumerWidget {
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
                 children: [
                   _MetricGrid(summary: value),
+                  const SizedBox(height: 24),
+                  records.when(
+                    loading: () => const LinearProgressIndicator(),
+                    error: (_, _) => const Text('近一周出入库暂不可用'),
+                    data: (items) {
+                      final now = DateTime.now();
+                      return WeeklyFlowChart(
+                        flow: const WeeklyMilkFlowCalculator().calculate(
+                          items,
+                          today: now,
+                          checkoutOffsetMinutes: now.timeZoneOffset.inMinutes,
+                        ),
+                      );
+                    },
+                  ),
                   const SizedBox(height: 24),
                   Text(
                     '未来 30 天期限',
