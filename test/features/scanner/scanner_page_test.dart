@@ -1,8 +1,12 @@
 import 'dart:async';
 
 import 'package:breast_milk/app/app_shell.dart';
+import 'package:breast_milk/app/theme/app_theme.dart';
 import 'package:breast_milk/data/database/app_database.dart';
 import 'package:breast_milk/data/database/database_providers.dart';
+import 'package:breast_milk/data/repositories/drift_milk_repository.dart';
+import 'package:breast_milk/domain/models/milk_enums.dart';
+import 'package:breast_milk/domain/repositories/milk_repository.dart';
 import 'package:breast_milk/features/scanner/presentation/scanner_page.dart';
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
@@ -99,6 +103,104 @@ void main() {
 
     expect(platform.toggleTorchCount, 1);
     expect(find.byTooltip('关闭闪光灯'), findsOneWidget);
+  });
+
+  testWidgets('扫到已过期奶时弹出告警且不能出库', (tester) async {
+    final database = AppDatabase.forTesting(NativeDatabase.memory());
+    final repository = DriftMilkRepository(database);
+    final stored = DateTime.now().toUtc().subtract(const Duration(days: 5));
+    final record = await repository.create(
+      CreateMilkRecordCommand(
+        storedAtUtc: stored,
+        timezoneOffsetMinutes: 0,
+        amountMl: 180,
+        storageMode: MilkStorageMode.refrigerated,
+        createdAtUtc: stored,
+      ),
+    );
+    final platform = _FakeScannerPlatform();
+    final previousPlatform = MobileScannerPlatform.instance;
+    MobileScannerPlatform.instance = platform;
+    MobileScannerController.resetPlatformSessionOwner();
+    addTearDown(() async {
+      MobileScannerController.resetPlatformSessionOwner();
+      MobileScannerPlatform.instance = previousPlatform;
+      await database.close();
+    });
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [appDatabaseProvider.overrideWithValue(database)],
+        child: MaterialApp(theme: AppTheme.light, home: const ScannerPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('查询编号'),
+      400,
+      scrollable: find.byType(Scrollable).last,
+    );
+    await tester.enterText(find.byType(TextField), record.id);
+    await tester.tap(find.text('查询编号'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('该袋已过期'), findsOneWidget);
+    expect(find.textContaining('已超过最终期限，不能出库'), findsOneWidget);
+    expect(find.textContaining('编号：${record.id}'), findsOneWidget);
+    expect(find.text('确认出库'), findsNothing);
+    expect(find.text('知道了'), findsOneWidget);
+
+    await tester.tap(find.text('知道了'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('该袋已过期，不能出库'), findsOneWidget);
+    expect(find.text('确认出库'), findsNothing);
+    final saved = await repository.findById(record.id);
+    expect(saved?.status, MilkStatus.refrigeratedInStock);
+  });
+
+  testWidgets('未过期奶仍进入普通出库确认', (tester) async {
+    final database = AppDatabase.forTesting(NativeDatabase.memory());
+    final repository = DriftMilkRepository(database);
+    final now = DateTime.now().toUtc();
+    final record = await repository.create(
+      CreateMilkRecordCommand(
+        storedAtUtc: now,
+        timezoneOffsetMinutes: 0,
+        amountMl: 120,
+        storageMode: MilkStorageMode.refrigerated,
+        createdAtUtc: now,
+      ),
+    );
+    final platform = _FakeScannerPlatform();
+    final previousPlatform = MobileScannerPlatform.instance;
+    MobileScannerPlatform.instance = platform;
+    MobileScannerController.resetPlatformSessionOwner();
+    addTearDown(() async {
+      MobileScannerController.resetPlatformSessionOwner();
+      MobileScannerPlatform.instance = previousPlatform;
+      await database.close();
+    });
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [appDatabaseProvider.overrideWithValue(database)],
+        child: MaterialApp(theme: AppTheme.light, home: const ScannerPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('查询编号'),
+      400,
+      scrollable: find.byType(Scrollable).last,
+    );
+    await tester.enterText(find.byType(TextField), record.id);
+    await tester.tap(find.text('查询编号'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('该袋已过期'), findsNothing);
+    expect(find.text('确认整袋出库'), findsOneWidget);
+    expect(find.text('确认出库'), findsOneWidget);
   });
 }
 

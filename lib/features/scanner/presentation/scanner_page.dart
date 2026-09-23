@@ -1,4 +1,5 @@
 import 'package:breast_milk/app/app_shell.dart';
+import 'package:breast_milk/app/theme/app_theme.dart';
 import 'package:breast_milk/data/database/database_providers.dart';
 import 'package:breast_milk/features/home/presentation/home_page.dart';
 import 'package:breast_milk/features/inventory/presentation/inventory_page.dart';
@@ -13,6 +14,7 @@ import 'package:flutter/material.dart';
 
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 class ScannerPage extends ConsumerStatefulWidget {
@@ -31,6 +33,7 @@ class _ScannerPageState extends ConsumerState<ScannerPage>
   String? _lastCode;
   bool _handling = false;
   String? _message;
+  bool _expiredAlert = false;
   bool _scannerActive = false;
   bool _appResumed = true;
   int _scannerStateRevision = 0;
@@ -149,7 +152,10 @@ class _ScannerPageState extends ConsumerState<ScannerPage>
             Text(
               _message ?? '对准标签二维码',
               textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyLarge,
+              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                color: _expiredAlert ? AppTheme.amber : null,
+                fontWeight: _expiredAlert ? FontWeight.w700 : null,
+              ),
             ),
             const SizedBox(height: 20),
             TextField(
@@ -191,11 +197,15 @@ class _ScannerPageState extends ConsumerState<ScannerPage>
   Future<void> _handleCode(String raw) async {
     final code = raw.trim();
     if (!RegExp(r'^\d{16}$').hasMatch(code)) {
-      setState(() => _message = '编号必须是 16 位纯数字');
+      setState(() {
+        _expiredAlert = false;
+        _message = '编号必须是 16 位纯数字';
+      });
       return;
     }
     setState(() {
       _handling = true;
+      _expiredAlert = false;
       _message = '正在查询 $code';
     });
     try {
@@ -213,12 +223,59 @@ class _ScannerPageState extends ConsumerState<ScannerPage>
         setState(() => _message = '该袋已丢弃');
         return;
       }
+      if (_isExpired(record)) {
+        await _warnExpired(record);
+        return;
+      }
       await _confirmCheckout(record);
     } catch (_) {
-      if (mounted) setState(() => _message = '查询失败，请重试');
+      if (mounted) {
+        setState(() {
+          _expiredAlert = false;
+          _message = '查询失败，请重试';
+        });
+      }
     } finally {
       if (mounted) setState(() => _handling = false);
     }
+  }
+
+  bool _isExpired(MilkRecord record) {
+    return record.status == MilkStatus.expired ||
+        record.isExpiredAt(DateTime.now().toUtc());
+  }
+
+  Future<void> _warnExpired(MilkRecord record) async {
+    final expires = DateFormat('M月d日 HH:mm')
+        .format(record.expiresAtUtc.toLocal());
+    setState(() {
+      _expiredAlert = true;
+      _message = '该袋已过期，不能出库';
+    });
+    await showDialog<void>(
+      context: context,
+      builder: (context) {
+        final warning =
+            Theme.of(context).extension<AppSemanticColors>()?.warning ??
+            AppTheme.amber;
+        return AlertDialog(
+          icon: Icon(Icons.warning_amber_rounded, color: warning, size: 36),
+          title: const Text('该袋已过期'),
+          content: Text(
+            '${record.amountMl} mL 已超过最终期限，不能出库。\n'
+            '编号：${record.id}\n'
+            '最终期限：$expires\n'
+            '请改为丢弃，不要当作正常出库。',
+          ),
+          actions: [
+            FilledButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('知道了'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   Future<void> _confirmCheckout(MilkRecord record) async {
@@ -254,9 +311,19 @@ class _ScannerPageState extends ConsumerState<ScannerPage>
       ref.invalidate(homeInventorySummaryProvider);
       ref.invalidate(homeEarliestRecordProvider);
       ref.invalidate(homeRecordsProvider);
-      if (mounted) setState(() => _message = '已出库 ${record.id}');
+      if (mounted) {
+        setState(() {
+          _expiredAlert = false;
+          _message = '已出库 ${record.id}';
+        });
+      }
     } on MilkRepositoryFailure catch (error) {
-      if (mounted) setState(() => _message = _failureMessage(error.code));
+      if (mounted) {
+        setState(() {
+          _expiredAlert = error.code == 'milk_expired';
+          _message = _failureMessage(error.code);
+        });
+      }
     }
   }
 
