@@ -59,10 +59,20 @@ class _WeeklyFlowChartState extends State<WeeklyFlowChart> {
             ),
             const SizedBox(height: 8),
             SizedBox(
-              height: 188,
+              height: 208,
               width: double.infinity,
               child: LayoutBuilder(
                 builder: (context, constraints) {
+                  final chartSize = Size(
+                    constraints.maxWidth,
+                    constraints.maxHeight,
+                  );
+                  final valueLabels = _pointValueLabels(
+                    flow: flow,
+                    size: chartSize,
+                    intakeColor: AppTheme.coral,
+                    checkoutColor: AppTheme.lake,
+                  );
                   return GestureDetector(
                     key: const Key('weekly-flow-plot'),
                     behavior: HitTestBehavior.opaque,
@@ -75,17 +85,43 @@ class _WeeklyFlowChartState extends State<WeeklyFlowChart> {
                         );
                       });
                     },
-                    child: CustomPaint(
-                      painter: _FlowChartPainter(
-                        flow: flow,
-                        selectedIndex: selected,
-                        intakeColor: AppTheme.coral,
-                        checkoutColor: AppTheme.lake,
-                        gridColor: const Color(0xFFEAD8D5),
-                        labelColor: muted,
-                        bandColor: const Color(0xFFFFE7E3),
-                      ),
-                      size: Size(constraints.maxWidth, constraints.maxHeight),
+                    child: Stack(
+                      fit: StackFit.expand,
+                      clipBehavior: Clip.none,
+                      children: [
+                        CustomPaint(
+                          painter: _FlowChartPainter(
+                            flow: flow,
+                            selectedIndex: selected,
+                            intakeColor: AppTheme.coral,
+                            checkoutColor: AppTheme.lake,
+                            gridColor: const Color(0xFFEAD8D5),
+                            labelColor: muted,
+                            bandColor: const Color(0xFFFFE7E3),
+                          ),
+                          size: chartSize,
+                        ),
+                        for (final label in valueLabels)
+                          Positioned(
+                            left: label.left,
+                            top: label.top,
+                            width: label.width,
+                            height: _ChartGeometry.labelHeight,
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text(
+                                label.text,
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: label.color,
+                                  fontSize: 10,
+                                  height: 1,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
                   );
                 },
@@ -129,8 +165,10 @@ class _LegendDot extends StatelessWidget {
 class _ChartGeometry {
   static const left = 40.0;
   static const right = 8.0;
-  static const top = 10.0;
+  static const top = 26.0;
   static const bottom = 24.0;
+  static const labelHeight = 12.0;
+  static const labelLift = 7.0;
 
   static int indexFor(double dx, double width, int count) {
     if (count <= 1) return 0;
@@ -138,6 +176,122 @@ class _ChartGeometry {
     final t = ((dx - left) / plotWidth).clamp(0.0, 1.0);
     return (t * (count - 1)).round().clamp(0, count - 1);
   }
+
+  static Rect plotOf(Size size) {
+    return Rect.fromLTRB(left, top, size.width - right, size.height - bottom);
+  }
+
+  static double x(Rect plot, int index, int count) {
+    if (count <= 1) return plot.center.dx;
+    return plot.left + plot.width * index / (count - 1);
+  }
+
+  static double y(Rect plot, int value, int axisMax) {
+    return plot.bottom - plot.height * (value / axisMax);
+  }
+
+  static int axisMax(int peak) {
+    if (peak <= 0) return 100;
+    final padded = math.max(peak + 1, (peak * 1.12).ceil());
+    final exponent = (math.log(padded) / math.ln10).floor();
+    final magnitude = math.pow(10, exponent).toInt();
+    final normalized = padded / magnitude;
+    final nice = normalized <= 1
+        ? 1
+        : normalized <= 2
+        ? 2
+        : normalized <= 5
+        ? 5
+        : 10;
+    return nice * magnitude;
+  }
+}
+
+class _PointValueLabel {
+  const _PointValueLabel({
+    required this.left,
+    required this.top,
+    required this.width,
+    required this.text,
+    required this.color,
+  });
+
+  final double left;
+  final double top;
+  final double width;
+  final String text;
+  final Color color;
+}
+
+List<_PointValueLabel> _pointValueLabels({
+  required WeeklyMilkFlow flow,
+  required Size size,
+  required Color intakeColor,
+  required Color checkoutColor,
+}) {
+  final plot = _ChartGeometry.plotOf(size);
+  final count = flow.days.length;
+  final peak = flow.days.fold<int>(
+    0,
+    (max, day) => math.max(max, math.max(day.intakeMl, day.checkoutMl)),
+  );
+  final axisMax = _ChartGeometry.axisMax(peak);
+  final spacing = count <= 1 ? plot.width : plot.width / (count - 1);
+  final slotWidth = math.min(40.0, math.max(18.0, spacing - 2));
+
+  double leftFor(double center) {
+    final left = center - slotWidth / 2;
+    return left.clamp(0.0, math.max(0.0, size.width - slotWidth));
+  }
+
+  final labels = <_PointValueLabel>[];
+  for (var index = 0; index < count; index++) {
+    final day = flow.days[index];
+    final center = _ChartGeometry.x(plot, index, count);
+    final intakeY = _ChartGeometry.y(plot, day.intakeMl, axisMax);
+    final checkoutY = _ChartGeometry.y(plot, day.checkoutMl, axisMax);
+    final tops = _labelTops(intakeY, checkoutY);
+    labels.add(
+      _PointValueLabel(
+        left: leftFor(center),
+        top: tops.$1,
+        width: slotWidth,
+        text: '${day.intakeMl}',
+        color: intakeColor,
+      ),
+    );
+    labels.add(
+      _PointValueLabel(
+        left: leftFor(center),
+        top: tops.$2,
+        width: slotWidth,
+        text: '${day.checkoutMl}',
+        color: checkoutColor,
+      ),
+    );
+  }
+  return labels;
+}
+
+(double, double) _labelTops(double intakeY, double checkoutY) {
+  const height = _ChartGeometry.labelHeight;
+  var intakeTop = intakeY - _ChartGeometry.labelLift - height;
+  var checkoutTop = checkoutY - _ChartGeometry.labelLift - height;
+  final overlaps =
+      intakeTop < checkoutTop + height && checkoutTop < intakeTop + height;
+  if (overlaps) {
+    final higher = math.min(intakeY, checkoutY);
+    final near = higher - _ChartGeometry.labelLift - height;
+    final far = near - 1 - height;
+    if (intakeY <= checkoutY) {
+      intakeTop = near;
+      checkoutTop = far;
+    } else {
+      checkoutTop = near;
+      intakeTop = far;
+    }
+  }
+  return (math.max(0, intakeTop), math.max(0, checkoutTop));
 }
 
 class _FlowChartPainter extends CustomPainter {
@@ -163,20 +317,15 @@ class _FlowChartPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final plot = Rect.fromLTRB(
-      _ChartGeometry.left,
-      _ChartGeometry.top,
-      size.width - _ChartGeometry.right,
-      size.height - _ChartGeometry.bottom,
-    );
+    final plot = _ChartGeometry.plotOf(size);
     final peak = flow.days.fold<int>(
       0,
       (max, day) => math.max(max, math.max(day.intakeMl, day.checkoutMl)),
     );
-    final axisMax = _axisMax(peak);
+    final axisMax = _ChartGeometry.axisMax(peak);
     final count = flow.days.length;
 
-    final selectedX = _x(plot, selectedIndex, count);
+    final selectedX = _ChartGeometry.x(plot, selectedIndex, count);
     final band = Path()
       ..addRRect(
         RRect.fromRectAndRadius(
@@ -214,7 +363,7 @@ class _FlowChartPainter extends CustomPainter {
       _paintLabel(
         canvas,
         _axisFormat.format(flow.days[index].date),
-        Offset(_x(plot, index, count), plot.bottom + 6),
+        Offset(_ChartGeometry.x(plot, index, count), plot.bottom + 6),
         below: true,
       );
     }
@@ -232,8 +381,8 @@ class _FlowChartPainter extends CustomPainter {
     final points = <Offset>[];
     for (var index = 0; index < count; index++) {
       final point = Offset(
-        _x(plot, index, count),
-        plot.bottom - plot.height * (valueOf(flow.days[index]) / axisMax),
+        _ChartGeometry.x(plot, index, count),
+        _ChartGeometry.y(plot, valueOf(flow.days[index]), axisMax),
       );
       points.add(point);
       if (index == 0) {
@@ -267,11 +416,6 @@ class _FlowChartPainter extends CustomPainter {
     }
   }
 
-  double _x(Rect plot, int index, int count) {
-    if (count <= 1) return plot.center.dx;
-    return plot.left + plot.width * index / (count - 1);
-  }
-
   void _paintLabel(
     Canvas canvas,
     String text,
@@ -291,22 +435,6 @@ class _FlowChartPainter extends CustomPainter {
         : anchor.dx - painter.width / 2;
     final dy = below ? anchor.dy : anchor.dy - painter.height / 2;
     painter.paint(canvas, Offset(dx, dy));
-  }
-
-  int _axisMax(int peak) {
-    if (peak <= 0) return 100;
-    final padded = math.max(peak + 1, (peak * 1.12).ceil());
-    final exponent = (math.log(padded) / math.ln10).floor();
-    final magnitude = math.pow(10, exponent).toInt();
-    final normalized = padded / magnitude;
-    final nice = normalized <= 1
-        ? 1
-        : normalized <= 2
-        ? 2
-        : normalized <= 5
-        ? 5
-        : 10;
-    return nice * magnitude;
   }
 
   String _formatAxis(int value) {

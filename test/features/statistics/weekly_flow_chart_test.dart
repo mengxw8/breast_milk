@@ -29,6 +29,10 @@ void main() {
     expect(find.text('最近一周'), findsOneWidget);
     expect(find.text('入库 200 mL'), findsOneWidget);
     expect(find.text('出库 40 mL'), findsOneWidget);
+    expect(find.text('80'), findsOneWidget);
+    expect(find.text('120'), findsOneWidget);
+    expect(find.text('40'), findsOneWidget);
+    expect(find.text('0'), findsWidgets);
     expect(find.textContaining('9月23日  入库 120 mL · 出库 40 mL'), findsOneWidget);
 
     final plot = find.byKey(const Key('weekly-flow-plot'));
