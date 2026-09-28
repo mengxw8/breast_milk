@@ -12,12 +12,13 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import androidx.core.content.ContextCompat
 import net.posprinter.IDeviceConnection
 import net.posprinter.POSConnect
 import net.posprinter.TSPLConst
 import net.posprinter.TSPLPrinter
-import java.util.concurrent.atomic.AtomicBoolean
 
 @SuppressLint("MissingPermission")
 class PrinterManager(
@@ -31,6 +32,10 @@ class PrinterManager(
 
     private var connection: IDeviceConnection? = null
     private var connectedAddress: String? = null
+    private var connecting = false
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private var pendingConnect: ((Result<Unit>) -> Unit)? = null
+    private var connectTimeout: Runnable? = null
     private var discoveryReceiverRegistered = false
     private var connectionReceiverRegistered = false
 
@@ -53,7 +58,10 @@ class PrinterManager(
             when (intent.action) {
                 BluetoothDevice.ACTION_ACL_DISCONNECTED -> {
                     val device = intent.bluetoothDeviceExtra() ?: return
-                    if (device.address.equals(connectedAddress, ignoreCase = true)) {
+                    if (device.address.equals(connectedAddress, ignoreCase = true) &&
+                        connection?.isConnect != true
+                    ) {
+                        // Closing an old socket can broadcast after a new one has connected.
                         clearConnection(emitDisconnected = true)
                     }
                 }
@@ -147,44 +155,66 @@ class PrinterManager(
 
         stopScan()
         disconnect()
+        connecting = true
         emitConnection("connecting", address)
 
-        val completed = AtomicBoolean(false)
-        val nextConnection = POSConnect.createDevice(POSConnect.DEVICE_TYPE_BLUETOOTH)
+        val nextConnection = try {
+            POSConnect.createDevice(POSConnect.DEVICE_TYPE_BLUETOOTH)
+        } catch (_: Exception) {
+            connecting = false
+            emitConnection("connect_failed", address)
+            callback(Result.failure(PrinterException("connect_failed")))
+            return
+        }
         connection = nextConnection
-        nextConnection.connect(address) { code, _, _ ->
-            when (code) {
-                POSConnect.CONNECT_SUCCESS -> {
-                    // Only accept success for the latest connect attempt.
-                    if (connection !== nextConnection) return@connect
-                    connectedAddress = address
-                    emitConnection("connected", address)
-                    if (completed.compareAndSet(false, true)) {
-                        callback(Result.success(Unit))
+        pendingConnect = callback
+        val timeout = Runnable {
+            if (connection !== nextConnection || !connecting) return@Runnable
+            clearConnection(
+                emitDisconnected = false,
+                addressOverride = address,
+                pendingFailureCode = "connect_failed",
+            )
+            emitConnection("connect_failed", address)
+        }
+        connectTimeout = timeout
+        mainHandler.postDelayed(timeout, CONNECT_TIMEOUT_MS)
+        try {
+            nextConnection.connect(address) { code, _, _ ->
+                activity.runOnUiThread {
+                    if (connection !== nextConnection) {
+                        // A superseded attempt may still report success after its socket was closed.
+                        if (code == POSConnect.CONNECT_SUCCESS) closeQuietly(nextConnection, true)
+                        return@runOnUiThread
+                    }
+                    when (code) {
+                        POSConnect.CONNECT_SUCCESS -> {
+                            if (!connecting) return@runOnUiThread
+                            connectedAddress = address
+                            finishConnect(Result.success(Unit))
+                            emitConnection("connected", address)
+                        }
+                        POSConnect.CONNECT_FAIL -> {
+                            clearConnection(
+                                emitDisconnected = false,
+                                addressOverride = address,
+                                pendingFailureCode = "connect_failed",
+                            )
+                            emitConnection("connect_failed", address)
+                        }
+                        POSConnect.CONNECT_INTERRUPT, POSConnect.BLUETOOTH_INTERRUPT ->
+                            clearConnection(emitDisconnected = true, addressOverride = address)
+                        POSConnect.SEND_FAIL -> emit("print", "send_failed")
                     }
                 }
-                POSConnect.CONNECT_FAIL -> {
-                    if (connection === nextConnection) {
-                        connection = null
-                        connectedAddress = null
-                    }
-                    emitConnection("connect_failed", address)
-                    if (completed.compareAndSet(false, true)) {
-                        callback(Result.failure(PrinterException("connect_failed")))
-                    }
-                }
-                POSConnect.CONNECT_INTERRUPT, POSConnect.BLUETOOTH_INTERRUPT -> {
-                    if (connection === nextConnection ||
-                        address.equals(connectedAddress, ignoreCase = true)
-                    ) {
-                        clearConnection(emitDisconnected = true, addressOverride = address)
-                    }
-                    if (completed.compareAndSet(false, true)) {
-                        callback(Result.failure(PrinterException("connection_interrupted")))
-                    }
-                }
-                POSConnect.SEND_FAIL -> emit("print", "send_failed")
             }
+        } catch (_: Exception) {
+            clearConnection(
+                emitDisconnected = false,
+                addressOverride = address,
+                pendingFailureCode = "connect_failed",
+            )
+            emitConnection("connect_failed", address)
         }
     }
 
@@ -194,7 +224,7 @@ class PrinterManager(
 
     fun status(): Map<String, Any?> {
         val live = connection?.isConnect == true && !connectedAddress.isNullOrBlank()
-        if (!live && (connection != null || connectedAddress != null)) {
+        if (!live && !connecting && (connection != null || connectedAddress != null)) {
             // Heal stale SDK state without double-emitting if already cleared.
             clearConnection(emitDisconnected = connectedAddress != null)
         }
@@ -295,17 +325,36 @@ class PrinterManager(
     private fun clearConnection(
         emitDisconnected: Boolean,
         addressOverride: String? = null,
+        pendingFailureCode: String = "connection_interrupted",
     ) {
         val previousAddress = addressOverride ?: connectedAddress
-        try {
-            connection?.close()
-        } catch (_: Exception) {
-            // Best-effort close; SDK may already be torn down.
-        }
+        val previousConnection = connection
+        val wasConnecting = connecting
         connection = null
         connectedAddress = null
+        closeQuietly(previousConnection, wasConnecting)
+        if (wasConnecting) {
+            finishConnect(Result.failure(PrinterException(pendingFailureCode)))
+        }
         if (emitDisconnected && previousAddress != null) {
             emitConnection("disconnected", previousAddress)
+        }
+    }
+
+    private fun finishConnect(result: Result<Unit>) {
+        connecting = false
+        connectTimeout?.let(mainHandler::removeCallbacks)
+        connectTimeout = null
+        val callback = pendingConnect
+        pendingConnect = null
+        callback?.invoke(result)
+    }
+
+    private fun closeQuietly(device: IDeviceConnection?, synchronously: Boolean) {
+        try {
+            if (synchronously) device?.closeSync() else device?.close()
+        } catch (_: Exception) {
+            // The SDK may already have closed the socket.
         }
     }
 
@@ -393,6 +442,7 @@ class PrinterManager(
         this[key].orEmpty().replace(Regex("[\\r\\n]+"), " ").take(18)
 
     companion object {
+        private const val CONNECT_TIMEOUT_MS = 20_000L
         private const val LABEL_WIDTH_MM = 40.0
         private const val LABEL_HEIGHT_MM = 30.0
         private const val GAP_MM = 2.0
