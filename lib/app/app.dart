@@ -48,6 +48,8 @@ class _BreastMilkAppState extends ConsumerState<BreastMilkApp> {
       title: '吨吨吨',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
+      darkTheme: AppTheme.dark,
+      themeMode: ThemeMode.system,
       locale: const Locale('zh', 'CN'),
       localizationsDelegates: GlobalMaterialLocalizations.delegates,
       supportedLocales: const [Locale('zh', 'CN')],

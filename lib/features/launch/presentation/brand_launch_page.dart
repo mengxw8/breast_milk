@@ -72,6 +72,7 @@ class _BrandLaunchPageState extends State<BrandLaunchPage>
         child: ColoredBox(
           color: _background,
           child: Image(
+            semanticLabel: '吨吨吨母乳记录',
             image: cacheHeight > 0
                 ? ResizeImage(
                     const AssetImage(BrandLaunchPage.assetName),
@@ -87,7 +88,9 @@ class _BrandLaunchPageState extends State<BrandLaunchPage>
             gaplessPlayback: true,
             frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
               if (frame != null || wasSynchronouslyLoaded) {
-                WidgetsBinding.instance.addPostFrameCallback((_) => _startHold());
+                WidgetsBinding.instance.addPostFrameCallback(
+                  (_) => _startHold(),
+                );
               }
               return child;
             },
