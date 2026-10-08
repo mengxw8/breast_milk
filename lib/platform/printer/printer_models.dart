@@ -116,6 +116,8 @@ class PrinterFailure implements Exception {
     'permission_request_in_progress' => '正在请求蓝牙权限',
     'bluetooth_unavailable' => '此设备不支持蓝牙',
     'bluetooth_disabled' => '请先开启蓝牙',
+    'bluetooth_enable_cancelled' => '已取消开启蓝牙，可点击开启蓝牙重试',
+    'bluetooth_enable_failed' => '无法打开蓝牙开启弹窗，请在系统设置中开启蓝牙',
     'scan_start_failed' => '无法开始扫描',
     'invalid_address' => '蓝牙设备地址无效',
     'connect_failed' => '打印机连接失败',

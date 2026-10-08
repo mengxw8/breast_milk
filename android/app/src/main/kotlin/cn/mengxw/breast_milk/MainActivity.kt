@@ -1,6 +1,8 @@
 package cn.mengxw.breast_milk
 
 import android.os.Bundle
+import android.bluetooth.BluetoothAdapter
+import android.content.Intent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import cn.mengxw.breast_milk.backup.BackupFileChannel
@@ -18,6 +20,13 @@ class MainActivity : FlutterFragmentActivity() {
     private var flutterUiReady = false
 
     // Launchers must be registered before the Activity reaches STARTED.
+    private val enableBluetoothLauncher =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            if (::printerChannel.isInitialized) {
+                printerChannel.onBluetoothEnableResult(result.resultCode)
+            }
+        }
+
     private val getContentLauncher =
         registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
             backupFileChannel?.onPickedUri(uri)
@@ -60,6 +69,9 @@ class MainActivity : FlutterFragmentActivity() {
         printerChannel = PrinterChannel(
             activity = this,
             messenger = flutterEngine.dartExecutor.binaryMessenger,
+            launchEnableBluetooth = {
+                enableBluetoothLauncher.launch(Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE))
+            },
         )
         backupFileChannel = BackupFileChannel(
             activity = this,

@@ -47,14 +47,15 @@ class _PrinterDebugPageState extends ConsumerState<PrinterDebugPage> {
 
   Future<void> _load() async {
     final hasPermissions = await _gateway.hasPermissions();
-    final devices = hasPermissions
+    final status = hasPermissions ? await _gateway.getStatus() : null;
+    final devices = hasPermissions && status?.bluetoothState == 'enabled'
         ? await _gateway.getBondedDevices()
         : const <PrinterDevice>[];
-    final status = hasPermissions ? await _gateway.getStatus() : null;
     if (!mounted) return;
     setState(() {
       _hasPermissions = hasPermissions;
       _status = status;
+      if (status?.bluetoothState != 'enabled') _devices.clear();
       for (final device in devices) {
         _devices[device.address] = device;
       }
@@ -62,11 +63,15 @@ class _PrinterDebugPageState extends ConsumerState<PrinterDebugPage> {
   }
 
   Future<void> _requestPermissions() => _run(() async {
-    final granted = await _gateway.requestPermissions();
-    if (!granted) {
-      throw const PrinterFailure('permissions_required');
+    try {
+      final granted = await _gateway.requestPermissions();
+      if (!granted) {
+        throw const PrinterFailure('permissions_required');
+      }
+    } finally {
+      // 权限和蓝牙开关是独立状态；取消开启后仍需更新已授予的权限。
+      await _load();
     }
-    await _load();
   });
 
   Future<void> _toggleScan() => _run(() async {
@@ -187,6 +192,8 @@ class _PrinterDebugPageState extends ConsumerState<PrinterDebugPage> {
             const SizedBox(height: 8),
             if (!_hasPermissions)
               const Text('授予蓝牙权限后可读取已配对设备并扫描打印机。')
+            else if (status?.bluetoothState == 'disabled')
+              const Text('请点击开启蓝牙，并在系统弹窗中确认。')
             else if (devices.isEmpty)
               const Text('没有发现设备，请确认打印机已开机并处于可发现状态。')
             else
@@ -269,10 +276,10 @@ class _StatusSection extends StatelessWidget {
         ),
         const SizedBox(width: 12),
         Expanded(child: Text(statusText)),
-        if (!hasPermissions)
+        if (!hasPermissions || status?.bluetoothState == 'disabled')
           FilledButton(
             onPressed: isBusy ? null : onRequestPermissions,
-            child: const Text('授权'),
+            child: Text(hasPermissions ? '开启蓝牙' : '授权'),
           )
         else if (isConnected)
           TextButton(

@@ -12,6 +12,7 @@ import io.flutter.plugin.common.MethodChannel
 class PrinterChannel(
     private val activity: Activity,
     messenger: BinaryMessenger,
+    private val launchEnableBluetooth: () -> Unit,
 ) : MethodChannel.MethodCallHandler, EventChannel.StreamHandler {
     private val methodChannel = MethodChannel(messenger, METHOD_CHANNEL)
     private val eventChannel = EventChannel(messenger, EVENT_CHANNEL)
@@ -70,8 +71,28 @@ class PrinterChannel(
 
     fun onRequestPermissionsResult(requestCode: Int) {
         if (requestCode != PERMISSION_REQUEST_CODE) return
-        permissionResult?.success(manager.hasPermissions())
+        val result = permissionResult ?: return
+        if (!manager.hasPermissions()) {
+            permissionResult = null
+            result.success(false)
+            return
+        }
+        try {
+            ensureBluetoothEnabled(result)
+        } catch (error: Exception) {
+            permissionResult = null
+            result.error((error as? PrinterException)?.code ?: "bluetooth_enable_failed", null, null)
+        }
+    }
+
+    fun onBluetoothEnableResult(resultCode: Int) {
+        val result = permissionResult ?: return
         permissionResult = null
+        if (resultCode == Activity.RESULT_OK) {
+            result.success(true)
+        } else {
+            result.error("bluetooth_enable_cancelled", null, null)
+        }
     }
 
     fun dispose() {
@@ -92,21 +113,40 @@ class PrinterChannel(
     }
 
     private fun requestPermissions(result: MethodChannel.Result) {
-        if (manager.hasPermissions()) {
-            result.success(true)
-            return
-        }
         if (permissionResult != null) {
             result.error("permission_request_in_progress", null, null)
             return
         }
-        val permissions = manager.requiredPermissions()
-        if (permissions.isEmpty()) {
-            result.success(true)
+        if (manager.hasPermissions()) {
+            ensureBluetoothEnabled(result)
             return
         }
         permissionResult = result
-        ActivityCompat.requestPermissions(activity, permissions, PERMISSION_REQUEST_CODE)
+        try {
+            ActivityCompat.requestPermissions(activity, manager.requiredPermissions(), PERMISSION_REQUEST_CODE)
+        } catch (error: Exception) {
+            permissionResult = null
+            throw error
+        }
+    }
+
+    private fun ensureBluetoothEnabled(result: MethodChannel.Result) {
+        when (manager.bluetoothState()) {
+            "unavailable" -> throw PrinterException("bluetooth_unavailable")
+            "enabled" -> {
+                permissionResult = null
+                result.success(true)
+            }
+            else -> {
+                permissionResult = result
+                try {
+                    launchEnableBluetooth()
+                } catch (error: Exception) {
+                    permissionResult = null
+                    throw PrinterException("bluetooth_enable_failed", error)
+                }
+            }
+        }
     }
 
     private fun connect(call: MethodCall, result: MethodChannel.Result) {
