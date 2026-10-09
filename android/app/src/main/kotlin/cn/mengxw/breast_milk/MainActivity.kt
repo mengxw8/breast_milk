@@ -9,12 +9,14 @@ import cn.mengxw.breast_milk.backup.BackupFileChannel
 import cn.mengxw.breast_milk.printer.PrinterChannel
 import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
+import io.flutter.plugin.common.MethodChannel
 
 /**
  * Uses [FlutterFragmentActivity] so AndroidX Activity Result APIs work for
  * reliable large-file backup import/export on MIUI.
  */
 class MainActivity : FlutterFragmentActivity() {
+    private val systemChannelName = "cn.mengxw.breast_milk/system"
     private lateinit var printerChannel: PrinterChannel
     private var backupFileChannel: BackupFileChannel? = null
     private var flutterUiReady = false
@@ -54,6 +56,14 @@ class MainActivity : FlutterFragmentActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, systemChannelName)
+            .setMethodCallHandler { call, result ->
+                if (call.method == "timezone") {
+                    result.success(java.util.TimeZone.getDefault().id)
+                } else {
+                    result.notImplemented()
+                }
+            }
         flutterEngine.renderer.addIsDisplayingFlutterUiListener(
             object : io.flutter.embedding.engine.renderer.FlutterUiDisplayListener {
                 override fun onFlutterUiDisplayed() {

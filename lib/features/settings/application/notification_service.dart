@@ -1,4 +1,5 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter/services.dart';
 import 'package:timezone/data/latest.dart' as tz_data;
 import 'package:timezone/timezone.dart' as tz;
 
@@ -9,6 +10,17 @@ class NotificationService {
 
   Future<void> initialize() async {
     tz_data.initializeTimeZones();
+    try {
+      final name = await const MethodChannel('cn.mengxw.breast_milk/system')
+          .invokeMethod<String>('timezone');
+      if (name != null && name.isNotEmpty) {
+        tz.setLocalLocation(tz.getLocation(name));
+      }
+    } on PlatformException {
+      // Keep the timezone package default when the platform channel is absent.
+    } on ArgumentError {
+      // An unknown platform timezone should not prevent notifications.
+    }
     await _plugin.initialize(
       settings: const InitializationSettings(
         android: AndroidInitializationSettings('@mipmap/ic_launcher'),
