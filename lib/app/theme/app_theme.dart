@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 abstract final class AppTheme {
-  static const coral = Color(0xFFD85F59);
+  static const coral = Color(0xFFB23B35);
   static const lake = Color(0xFF287F89);
   static const amber = Color(0xFFB66A0B);
   static const success = Color(0xFF347552);

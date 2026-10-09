@@ -48,11 +48,11 @@ class _WeeklyFlowChartState extends State<WeeklyFlowChart> {
               runSpacing: 8,
               children: [
                 _LegendDot(
-                  color: AppTheme.coral,
+                  color: theme.colorScheme.primary,
                   label: '入库 ${flow.intakeMl} mL',
                 ),
                 _LegendDot(
-                  color: AppTheme.lake,
+                  color: theme.colorScheme.secondary,
                   label: '出库 ${flow.checkoutMl} mL',
                 ),
               ],
@@ -70,8 +70,8 @@ class _WeeklyFlowChartState extends State<WeeklyFlowChart> {
                   final valueLabels = _pointValueLabels(
                     flow: flow,
                     size: chartSize,
-                    intakeColor: AppTheme.coral,
-                    checkoutColor: AppTheme.lake,
+                    intakeColor: theme.colorScheme.primary,
+                    checkoutColor: theme.colorScheme.secondary,
                   );
                   return GestureDetector(
                     key: const Key('weekly-flow-plot'),
@@ -93,8 +93,8 @@ class _WeeklyFlowChartState extends State<WeeklyFlowChart> {
                           painter: _FlowChartPainter(
                             flow: flow,
                             selectedIndex: selected,
-                            intakeColor: AppTheme.coral,
-                            checkoutColor: AppTheme.lake,
+                            intakeColor: theme.colorScheme.primary,
+                            checkoutColor: theme.colorScheme.secondary,
                             gridColor: const Color(0xFFEAD8D5),
                             labelColor: muted,
                             bandColor: const Color(0xFFFFE7E3),
