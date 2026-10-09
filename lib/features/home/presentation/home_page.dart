@@ -256,7 +256,11 @@ class _PriorityRecords extends StatelessWidget {
                   r.status != MilkStatus.discarded,
             )
             .toList()
-          ..sort((a, b) => a.storedAtUtc.compareTo(b.storedAtUtc));
+          ..sort((a, b) {
+            final aUseAt = a.bestUseAtUtc ?? a.expiresAtUtc;
+            final bUseAt = b.bestUseAtUtc ?? b.expiresAtUtc;
+            return aUseAt.compareTo(bUseAt);
+          });
     if (prioritized.isEmpty) {
       return const Card(
         child: ListTile(
