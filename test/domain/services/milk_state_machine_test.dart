@@ -18,6 +18,13 @@ void main() {
     (MilkStatus.thawing, MilkAction.checkOut, MilkStatus.checkedOut),
     (MilkStatus.expired, MilkAction.discard, MilkStatus.discarded),
     (MilkStatus.checkedOut, MilkAction.discard, MilkStatus.discarded),
+    (MilkStatus.frozenInStock, MilkAction.discard, MilkStatus.discarded),
+    (
+      MilkStatus.refrigeratedInStock,
+      MilkAction.discard,
+      MilkStatus.discarded,
+    ),
+    (MilkStatus.thawing, MilkAction.discard, MilkStatus.discarded),
   ];
 
   for (final (from, action, to) in allowed) {
@@ -151,6 +158,9 @@ void main() {
       'refrigeratedInStock:checkOut',
       'thawing:checkOut',
       'expired:discard',
+      'frozenInStock:discard',
+      'refrigeratedInStock:discard',
+      'thawing:discard',
       'checkedOut:undoCheckOut',
       'checkedOut:discard',
     };
