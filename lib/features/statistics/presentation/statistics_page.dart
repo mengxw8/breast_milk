@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:breast_milk/data/database/database_providers.dart';
@@ -27,7 +28,12 @@ final statisticsRefreshProvider = Provider<void>((ref) {
     ref.invalidate(statisticsSummaryProvider);
     ref.invalidate(statisticsRecordsProvider);
   });
+  final timer = Timer.periodic(const Duration(minutes: 1), (_) {
+    ref.invalidate(statisticsSummaryProvider);
+    ref.invalidate(statisticsRecordsProvider);
+  });
   ref.onDispose(subscription.cancel);
+  ref.onDispose(timer.cancel);
 });
 
 final statisticsRecordsProvider = FutureProvider<List<MilkRecord>>((ref) {
@@ -40,6 +46,7 @@ class StatisticsPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    ref.watch(statisticsRefreshProvider);
     final summary = ref.watch(statisticsSummaryProvider);
     final records = ref.watch(statisticsRecordsProvider);
     return Scaffold(

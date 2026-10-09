@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:breast_milk/app/theme/app_theme.dart';
@@ -52,7 +53,13 @@ final homeInventoryRefreshProvider = Provider<void>((ref) {
     ref.invalidate(homeRecordsProvider);
     ref.invalidate(homeEarliestRecordProvider);
   });
+  final timer = Timer.periodic(const Duration(minutes: 1), (_) {
+    ref.invalidate(homeInventorySummaryProvider);
+    ref.invalidate(homeEarliestRecordProvider);
+    ref.invalidate(homeRecordsProvider);
+  });
   ref.onDispose(subscription.cancel);
+  ref.onDispose(timer.cancel);
 });
 
 final homeRecordsProvider = FutureProvider<List<MilkRecord>>((ref) {
@@ -73,6 +80,7 @@ class HomePage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     ref.watch(homePrinterRefreshProvider);
+    ref.watch(homeInventoryRefreshProvider);
     final theme = Theme.of(context);
     final semantic = theme.extension<AppSemanticColors>()!;
     final summary = ref.watch(homeInventorySummaryProvider);
