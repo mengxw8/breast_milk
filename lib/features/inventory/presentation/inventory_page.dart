@@ -417,7 +417,8 @@ class _RecordTileState extends State<_RecordTile> {
                     leading: const Icon(Icons.water_drop_outlined),
                     title: Text('${widget.record.amountMl} mL · $status'),
                     subtitle: Text(
-                      '${widget.record.id}\n到期 ${DateFormat('M月d日 HH:mm').format(widget.record.expiresAtUtc.toLocal())}',
+                      '${widget.record.id}\n到期 ${DateFormat('M月d日 HH:mm').format(widget.record.expiresAtUtc.toLocal())}'
+                      '${_printStatusLabel(widget.record.printStatus)}',
                     ),
                     isThreeLine: true,
                     trailing: const Icon(Icons.chevron_right_rounded),
@@ -519,6 +520,8 @@ class _RecordDetails extends StatelessWidget {
               const SizedBox(height: 12),
               Text(record.id, style: Theme.of(context).textTheme.titleMedium),
               Text('${record.amountMl} mL · ${statusLabel(record.status)}'),
+              if (record.printStatus != PrintStatus.printed)
+                Text(_printStatusLabel(record.printStatus)),
               Text(
                 '入库：${DateFormat('yyyy年M月d日 HH:mm').format(record.storedAtUtc.toLocal())}',
               ),
@@ -576,4 +579,12 @@ String _eventLabel(MilkStatusEventType type) => switch (type) {
   MilkStatusEventType.checkOutUndone => '撤销出库',
   MilkStatusEventType.expired => '标记过期',
   MilkStatusEventType.discarded => '标记丢弃',
+};
+
+String _printStatusLabel(PrintStatus status) => switch (status) {
+  PrintStatus.notPrinted => '\n标签：未打印',
+  PrintStatus.printing => '\n标签：打印中（可稍后重试）',
+  PrintStatus.printed => '',
+  PrintStatus.failed => '\n标签：打印失败，请重试',
+  PrintStatus.needsUpdate => '\n标签：内容已更新，请重打',
 };

@@ -280,6 +280,7 @@ class DriftMilkRepository implements MilkRepository {
               ..where(
                 (table) => table.printStatus.isInValues({
                   PrintStatus.notPrinted,
+                  PrintStatus.printing,
                   PrintStatus.failed,
                   PrintStatus.needsUpdate,
                 }),
@@ -422,15 +423,16 @@ class DriftMilkRepository implements MilkRepository {
   @override
   Future<void> deleteFoodTag(String id) async {
     // Soft-delete only: keep milk_food_tags so historical records retain labels.
-    final updated = await (database.update(
-      database.foodTags,
-    )..where((table) => table.id.equals(id) & table.isActive.equals(true)))
-        .write(
-      FoodTagsCompanion(
-        isActive: const Value(false),
-        updatedAtUtc: Value(DateTime.now().toUtc()),
-      ),
-    );
+    final updated =
+        await (database.update(database.foodTags)..where(
+              (table) => table.id.equals(id) & table.isActive.equals(true),
+            ))
+            .write(
+              FoodTagsCompanion(
+                isActive: const Value(false),
+                updatedAtUtc: Value(DateTime.now().toUtc()),
+              ),
+            );
     if (updated == 0) {
       final exists = await (database.select(
         database.foodTags,
