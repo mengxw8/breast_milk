@@ -79,9 +79,11 @@ class _InventoryPageState extends ConsumerState<InventoryPage> {
                   message: '库存暂时不可用，请稍后重试。',
                 ),
                 data: (items) {
+                  final nowUtc = DateTime.now().toUtc();
                   final visible = items.where((item) {
+                    final effective = _effectiveStatus(item, nowUtc);
                     final statusOk =
-                        _statusFilter == null || item.status == _statusFilter;
+                        _statusFilter == null || effective == _statusFilter;
                     final query = _search.trim();
                     return statusOk &&
                         (query.isEmpty ||
@@ -89,8 +91,8 @@ class _InventoryPageState extends ConsumerState<InventoryPage> {
                             item.foodNotes.contains(query));
                   }).toList();
                   visible.sort((a, b) {
-                    final rank = _statusRank(a.status)
-                        .compareTo(_statusRank(b.status));
+                    final rank = _statusRank(_effectiveStatus(a, nowUtc))
+                        .compareTo(_statusRank(_effectiveStatus(b, nowUtc)));
                     if (rank != 0) return rank;
                     if (a.status == MilkStatus.frozenInStock &&
                         b.status == MilkStatus.frozenInStock) {
@@ -116,6 +118,10 @@ class _InventoryPageState extends ConsumerState<InventoryPage> {
                       separatorBuilder: (_, _) => const SizedBox(height: 8),
                       itemBuilder: (context, index) => _RecordTile(
                         record: visible[index],
+                        effectiveStatus: _effectiveStatus(
+                          visible[index],
+                          nowUtc,
+                        ),
                         onTap: () => _showDetails(visible[index]),
                         onDiscard: () => _discardRecord(visible[index]),
                         onDelete: () => _deleteRecord(visible[index]),
@@ -297,11 +303,13 @@ class _InventoryPageState extends ConsumerState<InventoryPage> {
 class _RecordTile extends StatefulWidget {
   const _RecordTile({
     required this.record,
+    required this.effectiveStatus,
     required this.onTap,
     required this.onDiscard,
     required this.onDelete,
   });
   final MilkRecord record;
+  final MilkStatus effectiveStatus;
   final VoidCallback onTap;
   final Future<bool> Function() onDiscard;
   final Future<bool> Function() onDelete;
@@ -328,7 +336,7 @@ class _RecordTileState extends State<_RecordTile> {
 
   @override
   Widget build(BuildContext context) {
-    final status = switch (widget.record.status) {
+    final status = switch (widget.effectiveStatus) {
       MilkStatus.frozenInStock => '冷冻在库',
       MilkStatus.refrigeratedInStock => '冷藏在库',
       MilkStatus.thawing => '解冻中',
@@ -422,6 +430,18 @@ class _RecordTileState extends State<_RecordTile> {
       ),
     );
   }
+}
+
+MilkStatus _effectiveStatus(MilkRecord record, DateTime nowUtc) {
+  if ({
+        MilkStatus.frozenInStock,
+        MilkStatus.refrigeratedInStock,
+        MilkStatus.thawing,
+      }.contains(record.status) &&
+      record.isExpiredAt(nowUtc)) {
+    return MilkStatus.expired;
+  }
+  return record.status;
 }
 
 class _RecordDetails extends StatelessWidget {
