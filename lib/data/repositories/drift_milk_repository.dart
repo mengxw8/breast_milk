@@ -213,13 +213,18 @@ class DriftMilkRepository implements MilkRepository {
       if (command.action == MilkAction.undoCheckOut) {
         restoreStatus = await _checkoutOrigin(command.id);
       }
-      final transition = stateMachine.transition(
-        currentStatus: current.status,
-        action: command.action,
-        atUtc: command.occurredAtUtc,
-        expiresAtUtc: current.expiresAtUtc.toUtc(),
-        restoreStatus: restoreStatus,
-      );
+      late final MilkTransition transition;
+      try {
+        transition = stateMachine.transition(
+          currentStatus: current.status,
+          action: command.action,
+          atUtc: command.occurredAtUtc,
+          expiresAtUtc: current.expiresAtUtc.toUtc(),
+          restoreStatus: restoreStatus,
+        );
+      } on MilkTransitionFailure catch (error) {
+        throw MilkRepositoryFailure(error.code);
+      }
       final update = _transitionUpdate(current, transition);
       await (database.update(
         database.milkRecords,

@@ -287,6 +287,33 @@ void main() {
     expect((await repository.eventsFor(record.id)).length, 1);
   });
 
+  test('状态机拒绝转换时映射为仓储错误', () async {
+    final now = DateTime.utc(2026, 9, 10, 4);
+    final record = await repository.create(
+      _createCommand(
+        storedAtUtc: DateTime.utc(2026, 9, 10, 3),
+        createdAtUtc: now,
+      ),
+    );
+
+    await expectLater(
+      repository.transition(
+        TransitionMilkRecordCommand(
+          id: record.id,
+          action: MilkAction.undoCheckOut,
+          occurredAtUtc: now,
+        ),
+      ),
+      throwsA(
+        isA<MilkRepositoryFailure>().having(
+          (error) => error.code,
+          'code',
+          'transition_not_allowed',
+        ),
+      ),
+    );
+  });
+
   test('SQL汇总区分可用、过期实体、出库和丢弃', () async {
     final now = DateTime.utc(2026, 9, 10);
     await repository.create(
