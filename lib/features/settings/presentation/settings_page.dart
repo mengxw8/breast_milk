@@ -59,7 +59,7 @@ class SettingsPage extends ConsumerWidget {
               onChanged: values.isLoading
                   ? null
                   : (enabled) async {
-                      final service = NotificationService();
+                      final service = ref.read(notificationServiceProvider);
                       await service.initialize();
                       if (enabled) {
                         await service.requestPermission();
@@ -141,7 +141,7 @@ class SettingsPage extends ConsumerWidget {
             .asData
             ?.value['notifications.enabled'] ==
         true) {
-      final service = NotificationService();
+      final service = ref.read(notificationServiceProvider);
       await service.initialize();
       await service.scheduleDaily(hour: picked.hour, minute: picked.minute);
     }

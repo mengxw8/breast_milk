@@ -1,7 +1,12 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter/services.dart';
 import 'package:timezone/data/latest.dart' as tz_data;
 import 'package:timezone/timezone.dart' as tz;
+
+final notificationServiceProvider = Provider<NotificationService>(
+  (ref) => NotificationService(),
+);
 
 class NotificationService {
   NotificationService({FlutterLocalNotificationsPlugin? plugin})
@@ -9,8 +14,25 @@ class NotificationService {
   final FlutterLocalNotificationsPlugin _plugin;
 
   bool _available = true;
+  Future<void>? _initialization;
+  Future<void> _operations = Future.value();
+  (int, int, int, int)? _lastSchedule;
 
-  Future<void> initialize() async {
+  /// Share concurrent initialization and allow retry after a genuine failure.
+  Future<void> initialize() => _initialization ??= _initializeOnce().catchError(
+    (Object error, StackTrace stack) {
+      _initialization = null;
+      Error.throwWithStackTrace(error, stack);
+    },
+  );
+
+  Future<void> _enqueue(Future<void> Function() operation) {
+    final pending = _operations.then((_) => operation());
+    _operations = pending.catchError((Object _) {});
+    return pending;
+  }
+
+  Future<void> _initializeOnce() async {
     _available = true;
     tz_data.initializeTimeZones();
     // A missing/unknown native ID still uses the device clock offset, not UTC.
@@ -85,8 +107,9 @@ class NotificationService {
     required int minute,
     int riskCount = 0,
     int totalMl = 0,
-  }) async {
-    if (!_available) return;
+  }) => _enqueue(() async {
+    final signature = (hour, minute, riskCount, totalMl);
+    if (!_available || _lastSchedule == signature) return;
     final now = tz.TZDateTime.now(tz.local);
     var next = tz.TZDateTime(
       tz.local,
@@ -116,9 +139,11 @@ class NotificationService {
           : '当前没有临期母乳记录。',
       matchDateTimeComponents: DateTimeComponents.time,
     );
-  }
+    _lastSchedule = signature;
+  });
 
-  Future<void> cancel() async {
+  Future<void> cancel() => _enqueue(() async {
     if (_available) await _plugin.cancel(id: 1);
-  }
+    _lastSchedule = null;
+  });
 }

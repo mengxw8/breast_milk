@@ -39,7 +39,7 @@ final notificationSyncProvider = Provider<void>((ref) {
         .toList();
     final time = settings['notifications.time'] as String? ?? '09:00';
     final parts = time.split(':');
-    final service = NotificationService();
+    final service = ref.read(notificationServiceProvider);
     await service.initialize();
     await service.scheduleDaily(
       hour: int.tryParse(parts.first) ?? 9,

@@ -31,7 +31,7 @@ class _BreastMilkAppState extends ConsumerState<BreastMilkApp> {
     if (values['notifications.enabled'] != true || !mounted) return;
     final time = values['notifications.time'] as String? ?? '09:00';
     final parts = time.split(':');
-    final service = NotificationService();
+    final service = ref.read(notificationServiceProvider);
     await service.initialize();
     await service.scheduleDaily(
       hour: int.tryParse(parts.first) ?? 9,
