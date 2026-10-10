@@ -10,4 +10,5 @@ analyzer:
     - linux/**
     - android/**
 
-# Kotlin/Android XML are checked separately with android/gradlew.bat :app:lintDebug.
+# Kotlin/Android XML: from android/, run gradlew.bat :app:lintDebug
+# --init-script ../scripts/android-lint.init.gradle (or run ./scripts/check.ps1 from the root).

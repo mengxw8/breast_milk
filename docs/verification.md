@@ -1,6 +1,6 @@
 # 验证与发布签名
 
-在项目根目录执行 `./scripts/check.ps1`：依次运行 Flutter analyze、全部 Flutter 测试及 Android lint（包含应用 Kotlin）。Android 检查需要 Java 17 或以上及 Android SDK。第三方插件的单元测试不属于本项目检查范围，lint 初始化脚本关闭它们的测试 variant，避免 Windows 跨盘符和 Robolectric 依赖问题；生产代码仍接受检查。
+在项目根目录执行 `./scripts/check.ps1`：依次运行 Flutter analyze、全部 Flutter 测试及 Android lint（包含应用 Kotlin）。Android 检查需要 Java 17 或以上及 Android SDK。第三方插件的单元测试不属于本项目检查范围，lint 初始化脚本关闭它们的测试 variant，避免 Windows 跨盘符和 Robolectric 依赖问题；生产代码仍接受检查。手动检查时，在 `android/` 目录运行 `./gradlew.bat :app:lintDebug --init-script ../scripts/android-lint.init.gradle`。
 
 发布前将 `android/key.properties.example` 复制为 `android/key.properties`，填写独立发布密钥的路径、alias 和密码。storeFile 相对于 android 目录，也可填写绝对路径。密钥文件和 key.properties 已加入忽略规则。未配置时 release 构建明确失败，debug 和 lint 不需要发布密钥。
 
