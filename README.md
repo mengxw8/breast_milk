@@ -45,6 +45,8 @@ flutter build apk --debug
 
 调试 APK 通常生成在 build/app/outputs/flutter-apk/app-debug.apk。release 构建需要配置 `android/key.properties` 中的独立发布签名；未配置时构建明确失败。配置步骤见[验证与发布签名](docs/verification.md)。
 
+首次发布且没有现成签名密钥时，可运行 `./scripts/setup-release-signing.ps1` 生成本地密钥和配置，再执行 `flutter build apk --release`。已有发布密钥时请沿用原密钥。
+
 ### 首次使用流程
 
 1. 在系统蓝牙设置中配对打印机，然后打开应用的「设置 → 蓝牙打印机」，授予蓝牙权限、连接设备并打印测试标签。只记录库存时可以跳过打印机配置。
