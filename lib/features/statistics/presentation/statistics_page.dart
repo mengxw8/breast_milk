@@ -1,10 +1,7 @@
-import 'dart:async';
-import 'dart:io';
+import 'package:breast_milk/data/database/inventory_clock.dart';
 
-import 'package:breast_milk/data/database/database_providers.dart';
 import 'package:breast_milk/domain/models/milk_enums.dart';
 import 'package:breast_milk/domain/models/milk_record.dart';
-import 'package:breast_milk/domain/repositories/milk_repository.dart';
 import 'package:breast_milk/domain/services/inventory_calculator.dart';
 import 'package:breast_milk/domain/services/weekly_milk_flow.dart';
 import 'package:breast_milk/features/statistics/presentation/weekly_flow_chart.dart';
@@ -13,32 +10,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
-final statisticsSummaryProvider = FutureProvider<InventorySummary>((ref) {
-  return ref
-      .watch(milkRepositoryProvider)
-      .inventorySummary(DateTime.now().toUtc());
+final statisticsSummaryProvider = FutureProvider<InventorySummary>((ref) async {
+  final now = ref.watch(inventoryClockProvider);
+  final records = await ref.watch(statisticsRecordsProvider.future);
+  return const InventoryCalculator().calculate(records, nowUtc: now);
 });
 
-final statisticsRefreshProvider = Provider<void>((ref) {
-  if (Platform.environment['FLUTTER_TEST'] == 'true') return;
-  final database = ref.watch(appDatabaseProvider);
-  final subscription = database.select(database.milkRecords).watch().listen((
-    _,
-  ) {
-    ref.invalidate(statisticsSummaryProvider);
-    ref.invalidate(statisticsRecordsProvider);
-  });
-  final timer = Timer.periodic(const Duration(minutes: 1), (_) {
-    ref.invalidate(statisticsSummaryProvider);
-    ref.invalidate(statisticsRecordsProvider);
-  });
-  ref.onDispose(subscription.cancel);
-  ref.onDispose(timer.cancel);
-});
-
-final statisticsRecordsProvider = FutureProvider<List<MilkRecord>>((ref) {
-  return ref.watch(milkRepositoryProvider).list(const MilkRecordFilter());
-});
+final statisticsRecordsProvider = inventoryDataProvider;
 
 class StatisticsPage extends ConsumerWidget {
   const StatisticsPage({super.key});
@@ -46,7 +24,7 @@ class StatisticsPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    ref.watch(statisticsRefreshProvider);
+    ref.watch(inventoryClockProvider);
     final summary = ref.watch(statisticsSummaryProvider);
     final records = ref.watch(statisticsRecordsProvider);
     return Scaffold(

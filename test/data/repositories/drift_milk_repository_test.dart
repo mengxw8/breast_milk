@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:breast_milk/data/database/app_database.dart';
 import 'package:breast_milk/data/repositories/drift_milk_repository.dart';
 import 'package:breast_milk/domain/models/milk_enums.dart';
@@ -16,6 +18,52 @@ void main() {
 
   tearDown(() async {
     await database.close();
+  });
+
+  test('列表和待打印记录批量加载标签，不随记录数增加 SELECT 次数', () async {
+    final logged = <String>[];
+    await runZoned(
+      () async {
+        final db = AppDatabase.forTesting(
+          NativeDatabase.memory(logStatements: true),
+        );
+        final repo = DriftMilkRepository(db);
+        try {
+          final now = DateTime.utc(2026, 10, 10);
+          final tag = await repo.saveFoodTag(name: '鸡蛋', atUtc: now);
+          for (var index = 0; index < 20; index++) {
+            await repo.create(
+              _createCommand(
+                storedAtUtc: now.add(Duration(seconds: index)),
+                createdAtUtc: now,
+                foodTagIds: [tag.id],
+              ),
+            );
+          }
+          for (final load in [
+            () => repo.list(const MilkRecordFilter()),
+            repo.pendingPrints,
+          ]) {
+            logged.clear();
+            final records = await load();
+            expect(records, hasLength(20));
+            expect(
+              records.every((record) => record.foodTagIds.single == tag.id),
+              isTrue,
+            );
+            expect(
+              logged.where((line) => line.contains('SELECT ')),
+              hasLength(2),
+            );
+          }
+        } finally {
+          await db.close();
+        }
+      },
+      zoneSpecification: ZoneSpecification(
+        print: (_, _, _, line) => logged.add(line),
+      ),
+    );
   });
 
   test('同秒创建在事务中生成唯一编号并保存期限、标签和事件', () async {
@@ -148,11 +196,7 @@ void main() {
     final now = DateTime.utc(2026, 9, 10);
     final tag = await repository.saveFoodTag(name: '燕麦', atUtc: now);
     final record = await repository.create(
-      _createCommand(
-        storedAtUtc: now,
-        createdAtUtc: now,
-        foodTagIds: [tag.id],
-      ),
+      _createCommand(storedAtUtc: now, createdAtUtc: now, foodTagIds: [tag.id]),
     );
     expect((await repository.findById(record.id))!.foodTagIds, [tag.id]);
 

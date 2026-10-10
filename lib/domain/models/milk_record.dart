@@ -50,6 +50,9 @@ class MilkRecord {
   final DateTime createdAtUtc;
   final DateTime updatedAtUtc;
 
+  MilkStatus effectiveStatusAt(DateTime now) =>
+      status.isActive && isExpiredAt(now) ? MilkStatus.expired : status;
+
   bool isExpiredAt(DateTime now) =>
       !now.toUtc().isBefore(expiresAtUtc) &&
       status != MilkStatus.checkedOut &&

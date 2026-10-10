@@ -5,6 +5,47 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  for (final theme in [AppTheme.light, AppTheme.dark]) {
+    testWidgets('选中日折线对高亮带保持对比度：${theme.brightness}', (tester) async {
+      final flow = WeeklyMilkFlow([
+        for (var day = 17; day <= 23; day++)
+          DailyMilkVolume(
+            date: DateTime(2026, 9, day),
+            intakeMl: 120,
+            checkoutMl: 40,
+          ),
+      ]);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: theme,
+          home: Scaffold(body: WeeklyFlowChart(flow: flow)),
+        ),
+      );
+      final paint = tester.widget<CustomPaint>(
+        find.descendant(
+          of: find.byKey(const Key('weekly-flow-plot')),
+          matching: find.byType(CustomPaint),
+        ),
+      );
+      final dynamic painter = paint.painter;
+      final Color surface = painter.surfaceColor as Color;
+      final Color band = Color.alphaBlend(painter.bandColor as Color, surface);
+      double contrast(Color a, Color b) {
+        final x = a.computeLuminance(), y = b.computeLuminance();
+        return x > y ? (x + .05) / (y + .05) : (y + .05) / (x + .05);
+      }
+
+      for (final color in [
+        painter.intakeColor as Color,
+        painter.checkoutColor as Color,
+      ]) {
+        expect(contrast(color, band), greaterThanOrEqualTo(3));
+      }
+      expect(painter.gridColor, theme.colorScheme.outlineVariant);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   testWidgets('点击某一天显示当天入库和出库奶量', (tester) async {
     final flow = WeeklyMilkFlow([
       for (var day = 17; day <= 23; day++)

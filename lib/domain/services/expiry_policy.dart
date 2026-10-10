@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:breast_milk/domain/models/milk_enums.dart';
+import 'package:breast_milk/domain/models/milk_record.dart';
 
 class ExpiryPolicy {
   const ExpiryPolicy();
@@ -45,6 +46,25 @@ class ExpiryPolicy {
     return ExpiryWindow(
       expiresAtUtc: thawStartedAtUtc.add(const Duration(hours: 24)),
       ruleVersion: ruleVersion,
+    );
+  }
+
+  ExpiryRisk assessRecord(MilkRecord record, DateTime nowUtc) {
+    final storage = forStorage(
+      mode: record.storageMode,
+      storedAtUtc: record.storedAtUtc,
+      timezoneOffsetMinutes: record.timezoneOffsetMinutes,
+    );
+    return assess(
+      status: record.status,
+      nowUtc: nowUtc,
+      window: ExpiryWindow(
+        expiresAtUtc: record.expiresAtUtc,
+        bestUseAtUtc: record.bestUseAtUtc,
+        bestUseReminderAtUtc: storage.bestUseReminderAtUtc,
+        finalExpiryReminderAtUtc: storage.finalExpiryReminderAtUtc,
+        ruleVersion: record.expiryRuleVersion,
+      ),
     );
   }
 

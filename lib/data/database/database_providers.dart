@@ -32,10 +32,9 @@ final notificationSyncProvider = Provider<void>((ref) {
     final risks = records
         .where(
           (row) =>
-              row.status != MilkStatus.checkedOut &&
-              row.status != MilkStatus.discarded &&
+              (row.status.isActive || row.status == MilkStatus.expired) &&
               (row.status == MilkStatus.thawing ||
-                  row.expiresAtUtc.isBefore(now)),
+                  !row.expiresAtUtc.isAfter(now)),
         )
         .toList();
     final time = settings['notifications.time'] as String? ?? '09:00';

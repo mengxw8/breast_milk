@@ -13,6 +13,56 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   driftRuntimeOptions.dontWarnAboutMultipleDatabases = true;
 
+  test('坏备份统一返回 BackupFailure 且不写入数据库', () async {
+    final source = AppDatabase.forTesting(NativeDatabase.memory());
+    final target = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(source.close);
+    addTearDown(target.close);
+    final now = DateTime.utc(2026, 9, 11);
+    await DriftMilkRepository(source).create(
+      CreateMilkRecordCommand(
+        storedAtUtc: now,
+        timezoneOffsetMinutes: 480,
+        amountMl: 100,
+        storageMode: MilkStorageMode.frozen,
+        createdAtUtc: now,
+      ),
+    );
+    final original = await BackupService(source).exportJson();
+    for (final entry in <String, Object?>{
+      'id': 12,
+      'amountMl': '100',
+      'amountMlNegative': -1,
+      'status': 999,
+      'statusNegative': -1,
+      'storedAtUtc': 'bad-date',
+      'timezoneOffsetMinutes': 900,
+      'printStatus': [],
+      'foodNotes': 3,
+    }.entries) {
+      final payload = jsonDecode(original) as Map<String, dynamic>;
+      final record = (payload['records'] as List).first as Map<String, dynamic>;
+      record[entry.key.replaceAll('Negative', '')] = entry.value;
+      await expectLater(
+        BackupService(target).importJson(jsonEncode(payload)),
+        throwsA(isA<BackupFailure>()),
+      );
+      expect(await target.select(target.milkRecords).get(), isEmpty);
+    }
+    for (final bad in [
+      null,
+      {},
+      [1],
+    ]) {
+      final payload = jsonDecode(original) as Map<String, dynamic>;
+      payload['foodTags'] = bad;
+      await expectLater(
+        BackupService(target).importJson(jsonEncode(payload)),
+        throwsA(isA<BackupFailure>()),
+      );
+    }
+  });
+
   test('JSON 备份可往返导入并拒绝未知版本', () async {
     final source = AppDatabase.forTesting(NativeDatabase.memory());
     final target = AppDatabase.forTesting(NativeDatabase.memory());
@@ -48,12 +98,10 @@ void main() {
     addTearDown(source.close);
     addTearDown(target.close);
     final now = DateTime.utc(2026, 9, 11, 10);
-    final sourceTag = await DriftMilkRepository(
-      source,
-    ).saveFoodTag(name: '燕麦', atUtc: now);
-    final targetTag = await DriftMilkRepository(
-      target,
-    ).saveFoodTag(name: '燕麦', atUtc: now.add(const Duration(hours: 1)));
+    final sourceTag = await DriftMilkRepository(source)
+        .saveFoodTag(name: '燕麦', atUtc: now);
+    final targetTag = await DriftMilkRepository(target)
+        .saveFoodTag(name: '燕麦', atUtc: now.add(const Duration(hours: 1)));
     final sourceRecord = await DriftMilkRepository(source).create(
       CreateMilkRecordCommand(
         storedAtUtc: now,
@@ -65,9 +113,8 @@ void main() {
       ),
     );
 
-    final count = await BackupService(target).importJson(
-      await BackupService(source).exportJson(),
-    );
+    final count = await BackupService(target)
+        .importJson(await BackupService(source).exportJson());
     expect(count, greaterThan(0));
 
     final tags = await DriftMilkRepository(target).listFoodTags();
@@ -75,9 +122,8 @@ void main() {
     expect(tags.single.name, '燕麦');
     expect(tags.single.id, targetTag.id);
 
-    final records = await DriftMilkRepository(
-      target,
-    ).list(const MilkRecordFilter());
+    final records = await DriftMilkRepository(target)
+        .list(const MilkRecordFilter());
     expect(records.map((row) => row.id), contains(sourceRecord.id));
 
     final links = await target.select(target.milkFoodTags).get();
@@ -96,9 +142,8 @@ void main() {
     addTearDown(source.close);
     addTearDown(target.close);
     final now = DateTime.utc(2026, 9, 11);
-    final tag = await DriftMilkRepository(
-      source,
-    ).saveFoodTag(name: '燕麦粥', atUtc: now);
+    final tag = await DriftMilkRepository(source)
+        .saveFoodTag(name: '燕麦粥', atUtc: now);
     await DriftMilkRepository(source).create(
       CreateMilkRecordCommand(
         storedAtUtc: now,
@@ -124,9 +169,8 @@ void main() {
     expect(count, greaterThan(0));
     final tags = await DriftMilkRepository(target).listFoodTags();
     expect(tags.single.name, '燕麦粥');
-    final records = await DriftMilkRepository(
-      target,
-    ).list(const MilkRecordFilter());
+    final records = await DriftMilkRepository(target)
+        .list(const MilkRecordFilter());
     expect(records.single.foodNotes, '早餐燕麦');
   });
 
@@ -145,9 +189,8 @@ void main() {
     addTearDown(target.close);
     final count = await BackupService(target).importJson(decoded);
     expect(count, greaterThan(0));
-    final records = await DriftMilkRepository(
-      target,
-    ).list(const MilkRecordFilter());
+    final records = await DriftMilkRepository(target)
+        .list(const MilkRecordFilter());
     expect(records.length, greaterThan(10));
   });
 }

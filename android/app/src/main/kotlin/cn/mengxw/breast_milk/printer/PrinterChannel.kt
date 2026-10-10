@@ -18,6 +18,8 @@ class PrinterChannel(
     private val eventChannel = EventChannel(messenger, EVENT_CHANNEL)
     private val manager = PrinterManager(activity) { eventSink?.success(it) }
 
+    private var toneGenerator: ToneGenerator? = null
+
     private var eventSink: EventChannel.EventSink? = null
     private var permissionResult: MethodChannel.Result? = null
 
@@ -47,7 +49,8 @@ class PrinterChannel(
                 }
                 "getStatus" -> result.success(manager.status())
                 "playScanBeep" -> {
-                    ToneGenerator(AudioManager.STREAM_NOTIFICATION, 85).startTone(ToneGenerator.TONE_PROP_BEEP, 120)
+                    val tone = toneGenerator ?: ToneGenerator(AudioManager.STREAM_NOTIFICATION, 85).also { toneGenerator = it }
+                    tone.startTone(ToneGenerator.TONE_PROP_BEEP, 120)
                     result.success(null)
                 }
                 "printTestLabel" -> {
@@ -101,6 +104,8 @@ class PrinterChannel(
         eventSink = null
         eventChannel.setStreamHandler(null)
         methodChannel.setMethodCallHandler(null)
+        toneGenerator?.release()
+        toneGenerator = null
         manager.dispose()
     }
 

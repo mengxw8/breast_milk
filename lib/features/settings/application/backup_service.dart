@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
@@ -155,7 +154,10 @@ class BackupService {
     final records = _maps(decoded['records']);
     final events = _maps(decoded['events']);
     final tags = _maps(decoded['foodTags']);
-    final milkFoodTags = _maps(decoded['milkFoodTags']);
+    final milkFoodTags = decoded.containsKey('milkFoodTags')
+        ? _maps(decoded['milkFoodTags'])
+        : <Map<String, dynamic>>[];
+    _validatePayload(records, events, tags, milkFoodTags);
     if (persistPreImport) {
       await _writePreImportBackup(await exportJson());
     }
@@ -165,18 +167,16 @@ class BackupService {
       final tagIdMap = <String, String>{};
 
       for (final tag in tags) {
-        final importedId = tag['id'] as String;
-        final name = (tag['name'] as String).trim();
+        final importedId = _required<String>(tag['id']);
+        final name = (_required<String>(tag['name'])).trim();
         if (name.isEmpty) continue;
         final importedUpdatedAt = _requiredDate(tag['updatedAtUtc']);
-        final byId =
-            await (database.select(database.foodTags)
-                  ..where((row) => row.id.equals(importedId)))
-                .getSingleOrNull();
-        final byName =
-            await (database.select(database.foodTags)
-                  ..where((row) => row.name.equals(name)))
-                .getSingleOrNull();
+        final byId = await (database.select(
+          database.foodTags,
+        )..where((row) => row.id.equals(importedId))).getSingleOrNull();
+        final byName = await (database.select(
+          database.foodTags,
+        )..where((row) => row.name.equals(name))).getSingleOrNull();
 
         if (byId != null) {
           tagIdMap[importedId] = byId.id;
@@ -193,8 +193,10 @@ class BackupService {
               name: Value(nextName),
               updatedAtUtc: Value(importedUpdatedAt),
               lastUsedAtUtc: Value(_date(tag['lastUsedAtUtc'])),
-              useCount: Value(tag['useCount'] as int? ?? byId.useCount),
-              isActive: Value(tag['isActive'] as bool? ?? byId.isActive),
+              useCount: Value(_optional<int>(tag['useCount']) ?? byId.useCount),
+              isActive: Value(
+                _optional<bool>(tag['isActive']) ?? byId.isActive,
+              ),
             ),
           );
           count++;
@@ -214,9 +216,11 @@ class BackupService {
                 _date(tag['lastUsedAtUtc']) ?? byName.lastUsedAtUtc,
               ),
               useCount: Value(
-                _maxInt(tag['useCount'] as int? ?? 0, byName.useCount),
+                _maxInt(_optional<int>(tag['useCount']) ?? 0, byName.useCount),
               ),
-              isActive: Value(tag['isActive'] as bool? ?? byName.isActive),
+              isActive: Value(
+                _optional<bool>(tag['isActive']) ?? byName.isActive,
+              ),
             ),
           );
           count++;
@@ -233,8 +237,8 @@ class BackupService {
                 createdAtUtc: _requiredDate(tag['createdAtUtc']),
                 updatedAtUtc: importedUpdatedAt,
                 lastUsedAtUtc: Value(_date(tag['lastUsedAtUtc'])),
-                useCount: Value(tag['useCount'] as int? ?? 0),
-                isActive: Value(tag['isActive'] as bool? ?? true),
+                useCount: Value(_optional<int>(tag['useCount']) ?? 0),
+                isActive: Value(_optional<bool>(tag['isActive']) ?? true),
               ),
             );
         count++;
@@ -243,8 +247,9 @@ class BackupService {
       for (final record in records) {
         final importedUpdatedAt = _requiredDate(record['updatedAtUtc']);
         final existing =
-            await (database.select(database.milkRecords)
-                  ..where((row) => row.id.equals(record['id'] as String)))
+            await (database.select(database.milkRecords)..where(
+                  (row) => row.id.equals(_required<String>(record['id'])),
+                ))
                 .getSingleOrNull();
         if (existing != null &&
             !importedUpdatedAt.isAfter(existing.updatedAtUtc)) {
@@ -254,15 +259,17 @@ class BackupService {
             .into(database.milkRecords)
             .insertOnConflictUpdate(
               MilkRecordsCompanion.insert(
-                id: record['id'] as String,
+                id: _required<String>(record['id']),
                 storedAtUtc: _requiredDate(record['storedAtUtc']),
-                timezoneOffsetMinutes: record['timezoneOffsetMinutes'] as int,
-                amountMl: record['amountMl'] as int,
+                timezoneOffsetMinutes: _required<int>(
+                  record['timezoneOffsetMinutes'],
+                ),
+                amountMl: _required<int>(record['amountMl']),
                 storageMode: _enum(
-                  record['storageMode'] as String,
+                  _required<String>(record['storageMode']),
                   MilkStorageMode.values,
                 ),
-                foodNotes: Value(record['foodNotes'] as String? ?? ''),
+                foodNotes: Value(_optional<String>(record['foodNotes']) ?? ''),
                 status: _enum(
                   _enumName(record['status'], MilkStatus.values),
                   MilkStatus.values,
@@ -273,11 +280,13 @@ class BackupService {
                 checkedOutAtUtc: Value(_date(record['checkedOutAtUtc'])),
                 discardedAtUtc: Value(_date(record['discardedAtUtc'])),
                 printStatus: _enum(
-                  record['printStatus'] as String,
+                  _required<String>(record['printStatus']),
                   PrintStatus.values,
                 ),
                 lastPrintedAtUtc: Value(_date(record['lastPrintedAtUtc'])),
-                expiryRuleVersion: record['expiryRuleVersion'] as String,
+                expiryRuleVersion: _required<String>(
+                  record['expiryRuleVersion'],
+                ),
                 createdAtUtc: _requiredDate(record['createdAtUtc']),
                 updatedAtUtc: importedUpdatedAt,
               ),
@@ -288,27 +297,27 @@ class BackupService {
       for (final event in events) {
         final importedOccurredAt = _requiredDate(event['occurredAtUtc']);
         final existing =
-            await (database.select(database.milkStatusEvents)
-                  ..where((row) => row.id.equals(event['id'] as String)))
+            await (database.select(database.milkStatusEvents)..where(
+                  (row) => row.id.equals(_required<String>(event['id'])),
+                ))
                 .getSingleOrNull();
         if (existing != null &&
             !importedOccurredAt.isAfter(existing.occurredAtUtc)) {
           continue;
         }
-        final milkId = event['milkId'] as String;
-        final milkExists =
-            await (database.select(database.milkRecords)
-                  ..where((row) => row.id.equals(milkId)))
-                .getSingleOrNull();
+        final milkId = _required<String>(event['milkId']);
+        final milkExists = await (database.select(
+          database.milkRecords,
+        )..where((row) => row.id.equals(milkId))).getSingleOrNull();
         if (milkExists == null) continue;
         await database
             .into(database.milkStatusEvents)
             .insertOnConflictUpdate(
               MilkStatusEventsCompanion.insert(
-                id: event['id'] as String,
+                id: _required<String>(event['id']),
                 milkId: milkId,
                 type: _enum(
-                  event['type'] as String,
+                  _required<String>(event['type']),
                   MilkStatusEventType.values,
                 ),
                 occurredAtUtc: importedOccurredAt,
@@ -319,23 +328,23 @@ class BackupService {
                   _enumName(event['toStatus'], MilkStatus.values),
                   MilkStatus.values,
                 ),
-                metadataJson: Value(event['metadataJson'] as String? ?? '{}'),
+                metadataJson: Value(
+                  _optional<String>(event['metadataJson']) ?? '{}',
+                ),
               ),
             );
       }
 
       for (final link in milkFoodTags) {
-        final milkId = link['milkId'] as String;
-        final importedTagId = link['foodTagId'] as String;
+        final milkId = _required<String>(link['milkId']);
+        final importedTagId = _required<String>(link['foodTagId']);
         final localTagId = tagIdMap[importedTagId] ?? importedTagId;
-        final milkExists =
-            await (database.select(database.milkRecords)
-                  ..where((row) => row.id.equals(milkId)))
-                .getSingleOrNull();
-        final tagExists =
-            await (database.select(database.foodTags)
-                  ..where((row) => row.id.equals(localTagId)))
-                .getSingleOrNull();
+        final milkExists = await (database.select(
+          database.milkRecords,
+        )..where((row) => row.id.equals(milkId))).getSingleOrNull();
+        final tagExists = await (database.select(
+          database.foodTags,
+        )..where((row) => row.id.equals(localTagId))).getSingleOrNull();
         if (milkExists == null || tagExists == null) continue;
         await database
             .into(database.milkFoodTags)
@@ -359,23 +368,124 @@ class BackupService {
     await file.writeAsBytes(utf8.encode(json), flush: true);
   }
 
-  List<Map<String, dynamic>> _maps(Object? value) => value is List
-      ? value
-            .whereType<Map>()
-            .map((item) => Map<String, dynamic>.from(item))
-            .toList()
-      : const [];
+  T _required<T>(Object? value) {
+    if (value is! T) throw const BackupFailure('invalid_field_type');
+    return value;
+  }
 
-  DateTime _requiredDate(Object? value) => value is int
-      ? DateTime.fromMillisecondsSinceEpoch(value, isUtc: true)
-      : DateTime.parse(value.toString());
+  T? _optional<T>(Object? value) => value == null ? null : _required<T>(value);
+
+  List<Map<String, dynamic>> _maps(Object? value) {
+    if (value is! List) throw const BackupFailure('invalid_collection');
+    return value.map((item) {
+      if (item is! Map<String, dynamic>) {
+        throw const BackupFailure('invalid_row');
+      }
+      return item;
+    }).toList();
+  }
+
+  DateTime _requiredDate(Object? value) {
+    try {
+      if (value is int) {
+        return DateTime.fromMillisecondsSinceEpoch(value, isUtc: true);
+      }
+      final text = _required<String>(value);
+      final date = DateTime.parse(text);
+      if (!date.isUtc) throw const BackupFailure('utc_required');
+      return date;
+    } on FormatException {
+      throw const BackupFailure('invalid_date');
+    } on ArgumentError {
+      throw const BackupFailure('invalid_date');
+    }
+  }
+
+  void _validatePayload(
+    List<Map<String, dynamic>> records,
+    List<Map<String, dynamic>> events,
+    List<Map<String, dynamic>> tags,
+    List<Map<String, dynamic>> links,
+  ) {
+    for (final row in [...records, ...events, ...tags]) {
+      if (_required<String>(row['id']).isEmpty) {
+        throw const BackupFailure('invalid_id');
+      }
+    }
+    for (final row in records) {
+      _requiredDate(row['storedAtUtc']);
+      _requiredDate(row['createdAtUtc']);
+      _requiredDate(row['updatedAtUtc']);
+      _requiredDate(row['expiresAtUtc']);
+      final offset = _required<int>(row['timezoneOffsetMinutes']);
+      if (offset < -840 ||
+          offset > 840 ||
+          _required<int>(row['amountMl']) <= 0) {
+        throw const BackupFailure('invalid_record');
+      }
+      _enum(_required<String>(row['storageMode']), MilkStorageMode.values);
+      _enum(_enumName(row['status'], MilkStatus.values), MilkStatus.values);
+      _enum(_required<String>(row['printStatus']), PrintStatus.values);
+      _required<String>(row['expiryRuleVersion']);
+      _optional<String>(row['foodNotes']);
+      for (final key in [
+        'bestUseAtUtc',
+        'thawStartedAtUtc',
+        'checkedOutAtUtc',
+        'discardedAtUtc',
+        'lastPrintedAtUtc',
+      ]) {
+        _date(row[key]);
+      }
+    }
+    for (final row in tags) {
+      _required<String>(row['name']);
+      _requiredDate(row['createdAtUtc']);
+      _requiredDate(row['updatedAtUtc']);
+      _date(row['lastUsedAtUtc']);
+      final count = _optional<int>(row['useCount']);
+      if (count != null && count < 0) {
+        throw const BackupFailure('invalid_use_count');
+      }
+      _optional<bool>(row['isActive']);
+    }
+    for (final row in events) {
+      _required<String>(row['milkId']);
+      _requiredDate(row['occurredAtUtc']);
+      _enum(_required<String>(row['type']), MilkStatusEventType.values);
+      _enumNullable(row['fromStatus'], MilkStatus.values);
+      _enum(_enumName(row['toStatus'], MilkStatus.values), MilkStatus.values);
+      final metadata = _optional<String>(row['metadataJson']);
+      if (metadata != null) {
+        try {
+          if (jsonDecode(metadata) is! Map<String, dynamic>) {
+            throw const BackupFailure('invalid_metadata');
+          }
+        } on FormatException {
+          throw const BackupFailure('invalid_metadata');
+        }
+      }
+    }
+    for (final row in links) {
+      _required<String>(row['milkId']);
+      _required<String>(row['foodTagId']);
+    }
+  }
 
   DateTime? _date(Object? value) => value == null ? null : _requiredDate(value);
 
   int _maxInt(int a, int b) => a > b ? a : b;
 
-  String _enumName<T extends Enum>(Object? value, List<T> values) =>
-      value is int ? values[value].name : value.toString();
+  String _enumName<T extends Enum>(Object? value, List<T> values) {
+    if (value is int) {
+      if (value < 0 || value >= values.length) {
+        throw const BackupFailure('invalid_enum_index');
+      }
+      return values[value].name;
+    }
+    return _required<String>(value);
+  }
+
   T _enum<T extends Enum>(String name, List<T> values) => values.firstWhere(
     (value) => value.name == name,
     orElse: () => throw BackupFailure('invalid_enum_$name'),

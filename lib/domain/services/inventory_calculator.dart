@@ -22,10 +22,7 @@ class InventoryCalculator {
     var discarded = const InventoryMetric();
 
     for (final record in records) {
-      final dynamicallyExpired = record.isExpiredAt(nowUtc);
-      final effectiveStatus = dynamicallyExpired
-          ? MilkStatus.expired
-          : record.status;
+      final effectiveStatus = record.effectiveStatusAt(nowUtc);
 
       switch (effectiveStatus) {
         case MilkStatus.frozenInStock:

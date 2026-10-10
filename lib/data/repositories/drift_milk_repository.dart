@@ -148,7 +148,7 @@ class DriftMilkRepository implements MilkRepository {
       (table) => OrderingTerm.desc(table.storedAtUtc),
     ]);
     final rows = await query.get();
-    return Future.wait(rows.map(_mapRecord));
+    return _mapRecords(rows);
   }
 
   @override
@@ -287,7 +287,7 @@ class DriftMilkRepository implements MilkRepository {
               )
               ..orderBy([(table) => OrderingTerm.asc(table.createdAtUtc)]))
             .get();
-    return Future.wait(rows.map(_mapRecord));
+    return _mapRecords(rows);
   }
 
   @override
@@ -307,11 +307,9 @@ class DriftMilkRepository implements MilkRepository {
         await (database.select(database.milkRecords)
               ..where(
                 (table) =>
-                    table.status.isInValues({
-                      MilkStatus.frozenInStock,
-                      MilkStatus.refrigeratedInStock,
-                      MilkStatus.thawing,
-                    }) &
+                    table.status.isInValues(
+                      MilkStatus.values.where((status) => status.isActive),
+                    ) &
                     table.expiresAtUtc.isBiggerThanValue(nowUtc),
               )
               ..orderBy([(table) => OrderingTerm.asc(table.expiresAtUtc)])
@@ -480,11 +478,10 @@ class DriftMilkRepository implements MilkRepository {
   }
 
   List<Variable<Object>> _summaryVariables(DateTime nowUtc) {
-    final active = [
-      MilkStatus.frozenInStock.name,
-      MilkStatus.refrigeratedInStock.name,
-      MilkStatus.thawing.name,
-    ];
+    final active = MilkStatus.values
+        .where((status) => status.isActive)
+        .map((status) => status.name)
+        .toList();
     final physical = [...active, MilkStatus.expired.name];
     final variables = <Variable<Object>>[];
 
@@ -532,17 +529,39 @@ class DriftMilkRepository implements MilkRepository {
   Future<domain.MilkRecord> _findRequired(String id) async =>
       _mapRecord(await _findRowRequired(id));
 
+  Future<List<domain.MilkRecord>> _mapRecords(List<MilkRecordRow> rows) async {
+    if (rows.isEmpty) return const [];
+    final ids = rows.map((row) => row.id).toSet();
+    final links = await database.select(database.milkFoodTags).get();
+    final tags = <String, List<String>>{};
+    for (final link in links) {
+      if (ids.contains(link.milkId)) {
+        (tags[link.milkId] ??= []).add(link.foodTagId);
+      }
+    }
+    return rows
+        .map((row) => _recordFromRow(row, tags[row.id] ?? const []))
+        .toList();
+  }
+
   Future<domain.MilkRecord> _mapRecord(MilkRecordRow row) async {
     final links = await (database.select(
       database.milkFoodTags,
     )..where((table) => table.milkId.equals(row.id))).get();
+    return _recordFromRow(
+      row,
+      links.map((link) => link.foodTagId).toList(growable: false),
+    );
+  }
+
+  domain.MilkRecord _recordFromRow(MilkRecordRow row, List<String> foodTagIds) {
     return domain.MilkRecord(
       id: row.id,
       storedAtUtc: row.storedAtUtc.toUtc(),
       timezoneOffsetMinutes: row.timezoneOffsetMinutes,
       amountMl: row.amountMl,
       storageMode: row.storageMode,
-      foodTagIds: links.map((link) => link.foodTagId).toList(growable: false),
+      foodTagIds: foodTagIds,
       foodNotes: row.foodNotes,
       status: row.status,
       bestUseAtUtc: row.bestUseAtUtc?.toUtc(),

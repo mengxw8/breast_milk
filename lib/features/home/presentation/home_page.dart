@@ -1,11 +1,11 @@
-import 'dart:async';
 import 'dart:io';
 
+import 'package:breast_milk/data/database/inventory_clock.dart';
+import 'package:breast_milk/domain/services/expiry_policy.dart';
+
 import 'package:breast_milk/app/theme/app_theme.dart';
-import 'package:breast_milk/data/database/database_providers.dart';
 import 'package:breast_milk/domain/models/milk_enums.dart';
 import 'package:breast_milk/domain/models/milk_record.dart';
-import 'package:breast_milk/domain/repositories/milk_repository.dart';
 import 'package:breast_milk/domain/services/inventory_calculator.dart';
 import 'package:breast_milk/platform/printer/printer_models.dart';
 import 'package:breast_milk/platform/printer/printer_providers.dart';
@@ -36,40 +36,23 @@ final homePrinterRefreshProvider = Provider<void>((ref) {
   ref.onDispose(subscription.cancel);
 });
 
-final homeInventorySummaryProvider = FutureProvider<InventorySummary>((ref) {
-  return ref
-      .watch(milkRepositoryProvider)
-      .inventorySummary(DateTime.now().toUtc());
+final homeInventorySummaryProvider = FutureProvider<InventorySummary>((
+  ref,
+) async {
+  final now = ref.watch(inventoryClockProvider);
+  final records = await ref.watch(homeRecordsProvider.future);
+  return const InventoryCalculator().calculate(records, nowUtc: now);
 });
 
-final homeInventoryRefreshProvider = Provider<void>((ref) {
-  // Avoid leaving a database stream alive after widget tests complete.
-  if (Platform.environment['FLUTTER_TEST'] == 'true') return;
-  final database = ref.watch(appDatabaseProvider);
-  final subscription = database.select(database.milkRecords).watch().listen((
-    _,
-  ) {
-    ref.invalidate(homeInventorySummaryProvider);
-    ref.invalidate(homeRecordsProvider);
-    ref.invalidate(homeEarliestRecordProvider);
-  });
-  final timer = Timer.periodic(const Duration(minutes: 1), (_) {
-    ref.invalidate(homeInventorySummaryProvider);
-    ref.invalidate(homeEarliestRecordProvider);
-    ref.invalidate(homeRecordsProvider);
-  });
-  ref.onDispose(subscription.cancel);
-  ref.onDispose(timer.cancel);
-});
+final homeRecordsProvider = inventoryDataProvider;
 
-final homeRecordsProvider = FutureProvider<List<MilkRecord>>((ref) {
-  return ref.watch(milkRepositoryProvider).list(const MilkRecordFilter());
-});
-
-final homeEarliestRecordProvider = FutureProvider<MilkRecord?>((ref) {
-  return ref
-      .watch(milkRepositoryProvider)
-      .earliestUsable(DateTime.now().toUtc());
+final homeEarliestRecordProvider = FutureProvider<MilkRecord?>((ref) async {
+  final now = ref.watch(inventoryClockProvider);
+  final records = await ref.watch(homeRecordsProvider.future);
+  final usable =
+      records.where((record) => record.effectiveStatusAt(now).isActive).toList()
+        ..sort((a, b) => a.expiresAtUtc.compareTo(b.expiresAtUtc));
+  return usable.firstOrNull;
 });
 
 class HomePage extends ConsumerWidget {
@@ -80,7 +63,7 @@ class HomePage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     ref.watch(homePrinterRefreshProvider);
-    ref.watch(homeInventoryRefreshProvider);
+    final nowUtc = ref.watch(inventoryClockProvider);
     final theme = Theme.of(context);
     final semantic = theme.extension<AppSemanticColors>()!;
     final summary = ref.watch(homeInventorySummaryProvider);
@@ -237,10 +220,7 @@ class HomePage extends ConsumerWidget {
                         message: '完成第一袋母乳入库后，会在这里提示使用顺序和期限。',
                       );
                     }
-                    return _PriorityRecords(
-                      records: records,
-                      nowUtc: DateTime.now().toUtc(),
-                    );
+                    return _PriorityRecords(records: records, nowUtc: nowUtc);
                   },
                 ),
           ],
@@ -296,13 +276,17 @@ class _PriorityCard extends StatelessWidget {
     final semantic = Theme.of(context).extension<AppSemanticColors>()!;
     final expiresIn = record.expiresAtUtc.difference(nowUtc);
     final bestUseIn = record.bestUseAtUtc?.difference(nowUtc);
+    final risk = const ExpiryPolicy().assessRecord(record, nowUtc);
     final special =
-        record.isExpiredAt(nowUtc) ||
-        record.status == MilkStatus.thawing ||
+        risk == ExpiryRisk.expired ||
+        risk == ExpiryRisk.thawing ||
         expiresIn <= const Duration(days: 7);
     final near =
         !special &&
-        (expiresIn <= const Duration(days: 30) ||
+        (risk == ExpiryRisk.bestUseSoon ||
+            risk == ExpiryRisk.bestUsePassed ||
+            risk == ExpiryRisk.finalExpirySoon ||
+            expiresIn <= const Duration(days: 30) ||
             (bestUseIn != null && bestUseIn <= const Duration(days: 30)));
     final color = special
         ? semantic.softCoral

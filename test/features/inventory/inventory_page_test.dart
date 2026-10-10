@@ -22,6 +22,138 @@ void main() {
 
   tearDown(() => database.close());
 
+  for (final scale in [1.0, 1.3, 2.0]) {
+    testWidgets('打印状态完整位于卡片内，字号 $scale', (tester) async {
+      tester.view.physicalSize = const Size(320, 1000);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final now = DateTime.now().toUtc();
+      final record = await repository.create(
+        CreateMilkRecordCommand(
+          storedAtUtc: now,
+          timezoneOffsetMinutes: 480,
+          amountMl: 180,
+          storageMode: MilkStorageMode.frozen,
+          createdAtUtc: now,
+        ),
+      );
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [appDatabaseProvider.overrideWithValue(database)],
+          child: MaterialApp(
+            theme: AppTheme.light,
+            builder: (context, child) => MediaQuery(
+              data: MediaQuery.of(context)
+                  .copyWith(textScaler: TextScaler.linear(scale)),
+              child: child!,
+            ),
+            home: const InventoryPage(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(InventoryPage)),
+      );
+      for (final status in PrintStatus.values.where(
+        (s) => s != PrintStatus.printed,
+      )) {
+        await repository.updatePrintStatus(
+          id: record.id,
+          status: status,
+          updatedAtUtc: now,
+        );
+        container.invalidate(inventoryRecordsProvider);
+        await tester.pumpAndSettle();
+        final subtitle = find.textContaining('标签：');
+        final card = find
+            .ancestor(of: subtitle, matching: find.byType(Card))
+            .first;
+        expect(
+          tester.getRect(subtitle).bottom,
+          lessThanOrEqualTo(tester.getRect(card).bottom),
+          reason: '$status at scale $scale',
+        );
+        expect(tester.takeException(), isNull);
+      }
+    });
+  }
+
+  testWidgets('动态过期的详情仅提供丢弃操作', (tester) async {
+    final now = DateTime.now().toUtc().subtract(const Duration(days: 400));
+    final record = await repository.create(
+      CreateMilkRecordCommand(
+        storedAtUtc: now,
+        timezoneOffsetMinutes: 480,
+        amountMl: 180,
+        storageMode: MilkStorageMode.frozen,
+        createdAtUtc: now,
+      ),
+    );
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [appDatabaseProvider.overrideWithValue(database)],
+        child: MaterialApp(theme: AppTheme.light, home: const InventoryPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('180 mL · 已过期'));
+    await tester.pumpAndSettle();
+    expect(find.text('标记丢弃'), findsOneWidget);
+    expect(find.text('开始解冻'), findsNothing);
+    expect(find.text('整袋出库'), findsNothing);
+    expect(find.text('180 mL · 已过期'), findsNWidgets(2));
+    await tester.tap(find.text('标记丢弃'));
+    await tester.pumpAndSettle();
+    expect(
+      (await repository.findById(record.id))?.status,
+      MilkStatus.discarded,
+    );
+  });
+
+  testWidgets('待打印筛选包括打印中、失败和内容更新，排除已打印', (tester) async {
+    final now = DateTime.now().toUtc();
+    final ids = <PrintStatus, String>{};
+    for (final status in PrintStatus.values) {
+      final record = await repository.create(
+        CreateMilkRecordCommand(
+          storedAtUtc: now.add(Duration(seconds: status.index)),
+          timezoneOffsetMinutes: 480,
+          amountMl: 100 + status.index,
+          storageMode: MilkStorageMode.frozen,
+          createdAtUtc: now,
+        ),
+      );
+      ids[status] = record.id;
+      await repository.updatePrintStatus(
+        id: record.id,
+        status: status,
+        updatedAtUtc: now,
+      );
+    }
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [appDatabaseProvider.overrideWithValue(database)],
+        child: MaterialApp(theme: AppTheme.light, home: const InventoryPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('待打印'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining(ids[PrintStatus.printed]!), findsNothing);
+    for (final status in PrintStatus.values.where(
+      (s) => s != PrintStatus.printed,
+    )) {
+      await tester.scrollUntilVisible(
+        find.textContaining(ids[status]!),
+        100,
+        scrollable: find.byType(Scrollable).last,
+      );
+      expect(find.textContaining(ids[status]!), findsOneWidget);
+    }
+  });
+
   testWidgets('冷冻在库按入库时间倒序排列', (tester) async {
     final older = DateTime.utc(2026, 9, 10, 10);
     final newer = DateTime.utc(2026, 9, 11, 10);

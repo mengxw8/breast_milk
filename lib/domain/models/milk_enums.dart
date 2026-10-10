@@ -31,3 +31,12 @@ enum ExpiryRisk {
   finalExpirySoon,
   expired,
 }
+
+extension MilkStatusActivity on MilkStatus {
+  bool get isActive => switch (this) {
+    MilkStatus.frozenInStock ||
+    MilkStatus.refrigeratedInStock ||
+    MilkStatus.thawing => true,
+    _ => false,
+  };
+}

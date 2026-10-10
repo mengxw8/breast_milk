@@ -14,7 +14,7 @@ class MilkStateMachine {
       throw const MilkTransitionFailure('utc_required');
     }
 
-    final isActive = _activeStatuses.contains(currentStatus);
+    final isActive = currentStatus.isActive;
     final hasExpired = !atUtc.isBefore(expiresAtUtc);
     if (hasExpired && action == MilkAction.undoCheckOut) {
       throw const MilkTransitionFailure('milk_expired');
@@ -50,7 +50,7 @@ class MilkStateMachine {
       (MilkStatus.expired, MilkAction.discard) => MilkStatus.discarded,
       (MilkStatus.checkedOut, MilkAction.discard) => MilkStatus.discarded,
       (MilkStatus.checkedOut, MilkAction.undoCheckOut)
-          when _activeStatuses.contains(restoreStatus) =>
+          when restoreStatus?.isActive == true =>
         restoreStatus!,
       _ => throw const MilkTransitionFailure('transition_not_allowed'),
     };
@@ -70,12 +70,6 @@ class MilkStateMachine {
     MilkAction.markExpired => MilkStatusEventType.expired,
     MilkAction.discard => MilkStatusEventType.discarded,
     MilkAction.undoCheckOut => MilkStatusEventType.checkOutUndone,
-  };
-
-  static const _activeStatuses = {
-    MilkStatus.frozenInStock,
-    MilkStatus.refrigeratedInStock,
-    MilkStatus.thawing,
   };
 }
 

@@ -1,5 +1,5 @@
+import 'package:breast_milk/data/database/inventory_clock.dart';
 import 'package:breast_milk/data/database/database_providers.dart';
-import 'package:breast_milk/features/home/presentation/home_page.dart';
 import 'package:breast_milk/features/intake/application/intake_service.dart';
 import 'package:breast_milk/domain/models/milk_enums.dart';
 import 'package:breast_milk/domain/models/milk_record.dart';
@@ -10,14 +10,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
-final inventoryRecordsProvider = FutureProvider.autoDispose<List<MilkRecord>>((
-  ref,
-) {
-  return ref
-      .watch(milkRepositoryProvider)
-      .list(const MilkRecordFilter())
-      .catchError((_) => <MilkRecord>[]);
-});
+final inventoryRecordsProvider = inventoryDataProvider;
+
+final inventoryPendingPrintsProvider =
+    FutureProvider.autoDispose<List<MilkRecord>>((ref) {
+      ref.watch(inventoryRecordsProvider);
+      return ref.watch(milkRepositoryProvider).pendingPrints();
+    });
 
 class InventoryPage extends ConsumerStatefulWidget {
   const InventoryPage({super.key});
@@ -30,10 +29,16 @@ class InventoryPage extends ConsumerStatefulWidget {
 class _InventoryPageState extends ConsumerState<InventoryPage> {
   MilkStatus? _statusFilter;
   String _search = '';
+  bool _pendingPrintsOnly = false;
 
   @override
   Widget build(BuildContext context) {
-    final records = ref.watch(inventoryRecordsProvider);
+    final nowUtc = ref.watch(inventoryClockProvider);
+    final records = ref.watch(
+      _pendingPrintsOnly
+          ? inventoryPendingPrintsProvider
+          : inventoryRecordsProvider,
+    );
     return Scaffold(
       appBar: AppBar(title: const Text('库存')),
       body: SafeArea(
@@ -60,6 +65,12 @@ class _InventoryPageState extends ConsumerState<InventoryPage> {
                 scrollDirection: Axis.horizontal,
                 children: [
                   _statusChip(null, '全部'),
+                  FilterChip(
+                    label: const Text('待打印'),
+                    selected: _pendingPrintsOnly,
+                    onSelected: (value) =>
+                        setState(() => _pendingPrintsOnly = value),
+                  ),
                   for (final status in [
                     MilkStatus.frozenInStock,
                     MilkStatus.refrigeratedInStock,
@@ -79,9 +90,8 @@ class _InventoryPageState extends ConsumerState<InventoryPage> {
                   message: '库存暂时不可用，请稍后重试。',
                 ),
                 data: (items) {
-                  final nowUtc = DateTime.now().toUtc();
                   final visible = items.where((item) {
-                    final effective = _effectiveStatus(item, nowUtc);
+                    final effective = item.effectiveStatusAt(nowUtc);
                     final statusOk =
                         _statusFilter == null || effective == _statusFilter;
                     final query = _search.trim();
@@ -91,8 +101,8 @@ class _InventoryPageState extends ConsumerState<InventoryPage> {
                             item.foodNotes.contains(query));
                   }).toList();
                   visible.sort((a, b) {
-                    final rank = _statusRank(_effectiveStatus(a, nowUtc))
-                        .compareTo(_statusRank(_effectiveStatus(b, nowUtc)));
+                    final rank = _statusRank(a.effectiveStatusAt(nowUtc))
+                        .compareTo(_statusRank(b.effectiveStatusAt(nowUtc)));
                     if (rank != 0) return rank;
                     if (a.status == MilkStatus.frozenInStock &&
                         b.status == MilkStatus.frozenInStock) {
@@ -118,8 +128,7 @@ class _InventoryPageState extends ConsumerState<InventoryPage> {
                       separatorBuilder: (_, _) => const SizedBox(height: 8),
                       itemBuilder: (context, index) => _RecordTile(
                         record: visible[index],
-                        effectiveStatus: _effectiveStatus(
-                          visible[index],
+                        effectiveStatus: visible[index].effectiveStatusAt(
                           nowUtc,
                         ),
                         onTap: () => _showDetails(visible[index]),
@@ -179,9 +188,6 @@ class _InventoryPageState extends ConsumerState<InventoryPage> {
                   ),
                 );
             ref.invalidate(inventoryRecordsProvider);
-            ref.invalidate(homeInventorySummaryProvider);
-            ref.invalidate(homeEarliestRecordProvider);
-            ref.invalidate(homeRecordsProvider);
           } catch (_) {
             if (mounted) {
               ScaffoldMessenger.of(context)
@@ -249,9 +255,6 @@ class _InventoryPageState extends ConsumerState<InventoryPage> {
             ),
           );
       ref.invalidate(inventoryRecordsProvider);
-      ref.invalidate(homeInventorySummaryProvider);
-      ref.invalidate(homeEarliestRecordProvider);
-      ref.invalidate(homeRecordsProvider);
       return true;
     } catch (_) {
       if (mounted) {
@@ -286,9 +289,6 @@ class _InventoryPageState extends ConsumerState<InventoryPage> {
     try {
       await ref.read(milkRepositoryProvider).deleteById(record.id);
       ref.invalidate(inventoryRecordsProvider);
-      ref.invalidate(homeInventorySummaryProvider);
-      ref.invalidate(homeEarliestRecordProvider);
-      ref.invalidate(homeRecordsProvider);
       return true;
     } catch (_) {
       if (mounted) {
@@ -344,14 +344,13 @@ class _RecordTileState extends State<_RecordTile> {
       MilkStatus.checkedOut => '已出库',
       MilkStatus.discarded => '已丢弃',
     };
-    return SizedBox(
-      height: 80,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(8),
-        child: Stack(
-          alignment: Alignment.centerRight,
-          children: [
-            Row(
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(8),
+      child: Stack(
+        alignment: Alignment.centerRight,
+        children: [
+          Positioned.fill(
+            child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 SizedBox(
@@ -394,58 +393,43 @@ class _RecordTileState extends State<_RecordTile> {
                 ),
               ],
             ),
-            AnimatedPositioned(
-              duration: const Duration(milliseconds: 180),
-              curve: Curves.easeOut,
-              left: -_revealed,
-              right: _revealed,
-              top: 0,
-              bottom: 0,
-              child: GestureDetector(
-                onHorizontalDragUpdate: _onHorizontalDragUpdate,
-                onHorizontalDragEnd: _onHorizontalDragEnd,
-                onTap: () {
-                  if (_revealed > 0) {
-                    setState(() => _revealed = 0);
-                  } else {
-                    widget.onTap();
-                  }
-                },
-                child: Card(
-                  margin: EdgeInsets.zero,
-                  child: ListTile(
-                    leading: const Icon(Icons.water_drop_outlined),
-                    title: Text('${widget.record.amountMl} mL · $status'),
-                    subtitle: Text(
-                      '${widget.record.id}\n到期 ${DateFormat('M月d日 HH:mm').format(widget.record.expiresAtUtc.toLocal())}'
-                      '${_printStatusLabel(widget.record.printStatus)}',
-                    ),
-                    isThreeLine: true,
-                    trailing: const Icon(Icons.chevron_right_rounded),
+          ),
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            curve: Curves.easeOut,
+            transform: Matrix4.translationValues(-_revealed, 0, 0),
+            child: GestureDetector(
+              onHorizontalDragUpdate: _onHorizontalDragUpdate,
+              onHorizontalDragEnd: _onHorizontalDragEnd,
+              onTap: () {
+                if (_revealed > 0) {
+                  setState(() => _revealed = 0);
+                } else {
+                  widget.onTap();
+                }
+              },
+              child: Card(
+                margin: EdgeInsets.zero,
+                child: ListTile(
+                  leading: const Icon(Icons.water_drop_outlined),
+                  title: Text('${widget.record.amountMl} mL · $status'),
+                  subtitle: Text(
+                    '${widget.record.id}\n到期 ${DateFormat('M月d日 HH:mm').format(widget.record.expiresAtUtc.toLocal())}'
+                    '${_printStatusLabel(widget.record.printStatus)}',
                   ),
+                  isThreeLine: true,
+                  trailing: const Icon(Icons.chevron_right_rounded),
                 ),
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 }
 
-MilkStatus _effectiveStatus(MilkRecord record, DateTime nowUtc) {
-  if ({
-        MilkStatus.frozenInStock,
-        MilkStatus.refrigeratedInStock,
-        MilkStatus.thawing,
-      }.contains(record.status) &&
-      record.isExpiredAt(nowUtc)) {
-    return MilkStatus.expired;
-  }
-  return record.status;
-}
-
-class _RecordDetails extends StatelessWidget {
+class _RecordDetails extends ConsumerWidget {
   const _RecordDetails({
     required this.record,
     required this.statusLabel,
@@ -460,7 +444,10 @@ class _RecordDetails extends StatelessWidget {
   final Future<void> Function() onReprint;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final effectiveStatus = record.effectiveStatusAt(
+      ref.watch(inventoryClockProvider),
+    );
     final actions = <Widget>[];
     actions.add(
       OutlinedButton.icon(
@@ -469,7 +456,7 @@ class _RecordDetails extends StatelessWidget {
         label: const Text('重复打印条码'),
       ),
     );
-    if (record.status == MilkStatus.frozenInStock) {
+    if (effectiveStatus == MilkStatus.frozenInStock) {
       actions.add(
         FilledButton.icon(
           onPressed: () => onAction(MilkAction.startThawing),
@@ -478,11 +465,7 @@ class _RecordDetails extends StatelessWidget {
         ),
       );
     }
-    if ({
-      MilkStatus.frozenInStock,
-      MilkStatus.refrigeratedInStock,
-      MilkStatus.thawing,
-    }.contains(record.status)) {
+    if (effectiveStatus.isActive) {
       actions.add(
         FilledButton.icon(
           onPressed: () => onAction(MilkAction.checkOut),
@@ -491,7 +474,7 @@ class _RecordDetails extends StatelessWidget {
         ),
       );
     }
-    if (record.status == MilkStatus.checkedOut) {
+    if (effectiveStatus == MilkStatus.checkedOut) {
       actions.add(
         OutlinedButton.icon(
           onPressed: () => onAction(MilkAction.undoCheckOut),
@@ -500,7 +483,7 @@ class _RecordDetails extends StatelessWidget {
         ),
       );
     }
-    if (record.status == MilkStatus.expired) {
+    if (effectiveStatus == MilkStatus.expired) {
       actions.add(
         FilledButton.icon(
           onPressed: () => onAction(MilkAction.discard),
@@ -519,7 +502,7 @@ class _RecordDetails extends StatelessWidget {
               Text('库存详情', style: Theme.of(context).textTheme.titleLarge),
               const SizedBox(height: 12),
               Text(record.id, style: Theme.of(context).textTheme.titleMedium),
-              Text('${record.amountMl} mL · ${statusLabel(record.status)}'),
+              Text('${record.amountMl} mL · ${statusLabel(effectiveStatus)}'),
               if (record.printStatus != PrintStatus.printed)
                 Text(_printStatusLabel(record.printStatus)),
               Text(

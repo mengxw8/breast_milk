@@ -22,3 +22,15 @@ subprojects {
 tasks.register<Delete>("clean") {
     delete(rootProject.layout.buildDirectory)
 }
+
+// jni 1.0.x checks namespace through a Groovy property that AGP 9 no longer exposes.
+subprojects {
+    if (name == "jni" || name == "jni_flutter") {
+        plugins.withId("com.android.library") {
+            extensions.configure<com.android.build.gradle.LibraryExtension> {
+                namespace = if (project.name == "jni") "com.github.dart_lang.jni"
+                    else "com.github.dart_lang.jni_flutter"
+            }
+        }
+    }
+}

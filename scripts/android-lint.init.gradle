@@ -1,0 +1,10 @@
+// Analyze production Android code, including app Kotlin. Third-party plugin
+// unit tests need unrelated Robolectric dependencies and fail across Windows drives.
+gradle.beforeProject { project ->
+    project.plugins.withId('com.android.library') {
+        def components = project.extensions.getByName('androidComponents')
+        components.beforeVariants(components.selector().all(), { variant ->
+            variant.enableUnitTest = false
+        })
+    }
+}

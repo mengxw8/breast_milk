@@ -94,9 +94,14 @@ class _WeeklyFlowChartState extends State<WeeklyFlowChart> {
                             selectedIndex: selected,
                             intakeColor: theme.colorScheme.primary,
                             checkoutColor: theme.colorScheme.secondary,
-                            gridColor: const Color(0xFFEAD8D5),
+                            gridColor: theme.colorScheme.outlineVariant,
                             labelColor: muted,
-                            bandColor: const Color(0xFFFFE7E3),
+                            surfaceColor:
+                                theme.cardTheme.color ??
+                                theme.colorScheme.surfaceContainerLow,
+                            bandColor: theme.colorScheme.primary.withValues(
+                              alpha: 0.10,
+                            ),
                           ),
                           size: chartSize,
                         ),
@@ -302,6 +307,7 @@ class _FlowChartPainter extends CustomPainter {
     required this.gridColor,
     required this.labelColor,
     required this.bandColor,
+    required this.surfaceColor,
   });
 
   final WeeklyMilkFlow flow;
@@ -311,6 +317,7 @@ class _FlowChartPainter extends CustomPainter {
   final Color gridColor;
   final Color labelColor;
   final Color bandColor;
+  final Color surfaceColor;
 
   static final _axisFormat = DateFormat('M/d');
 
@@ -407,7 +414,7 @@ class _FlowChartPainter extends CustomPainter {
     );
 
     final dot = Paint()..color = color;
-    final ring = Paint()..color = const Color(0xFFFFFBFA);
+    final ring = Paint()..color = surfaceColor;
     for (var index = 0; index < points.length; index++) {
       final radius = index == selectedIndex ? 4.5 : 3.2;
       canvas.drawCircle(points[index], radius + 1.4, ring);
@@ -444,6 +451,10 @@ class _FlowChartPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _FlowChartPainter oldDelegate) {
     if (oldDelegate.selectedIndex != selectedIndex ||
+        oldDelegate.gridColor != gridColor ||
+        oldDelegate.bandColor != bandColor ||
+        oldDelegate.labelColor != labelColor ||
+        oldDelegate.surfaceColor != surfaceColor ||
         oldDelegate.intakeColor != intakeColor ||
         oldDelegate.checkoutColor != checkoutColor ||
         oldDelegate.flow.days.length != flow.days.length) {

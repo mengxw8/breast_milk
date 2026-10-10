@@ -1,7 +1,14 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
+}
+
+val releaseSigningFile = rootProject.file("key.properties")
+val releaseSigning = Properties().apply {
+    if (releaseSigningFile.exists()) releaseSigningFile.inputStream().use { load(it) }
 }
 
 android {
@@ -30,13 +37,28 @@ android {
         versionName = flutter.versionName
     }
 
-    buildTypes {
-        release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+    signingConfigs {
+        if (releaseSigningFile.exists()) {
+            create("release") {
+                keyAlias = releaseSigning.getProperty("keyAlias")
+                keyPassword = releaseSigning.getProperty("keyPassword")
+                storeFile = rootProject.file(requireNotNull(releaseSigning.getProperty("storeFile")))
+                storePassword = releaseSigning.getProperty("storePassword")
+            }
         }
     }
+
+    buildTypes {
+        release {
+            signingConfig = signingConfigs.findByName("release")
+        }
+    }
+
+    lint {
+        abortOnError = true
+        checkReleaseBuilds = true
+    }
+
 }
 
 kotlin {
@@ -53,4 +75,18 @@ dependencies {
 
 flutter {
     source = "../.."
+}
+
+// Debug/lint tasks remain available without release credentials.
+gradle.taskGraph.whenReady {
+    val buildsRelease = allTasks.any {
+        it.project == project && (it.name.startsWith("assemble") || it.name.startsWith("bundle") ||
+            it.name.startsWith("package")) && it.name.contains("Release")
+    }
+    if (buildsRelease) {
+        require(releaseSigningFile.exists()) { "Release signing requires android/key.properties; see android/key.properties.example" }
+        for (key in listOf("storeFile", "storePassword", "keyAlias", "keyPassword")) {
+            require(!releaseSigning.getProperty(key).isNullOrBlank()) { "Missing release signing property: $key" }
+        }
+    }
 }
