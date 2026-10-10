@@ -51,3 +51,9 @@ app.*.map.json
 /android/key.properties
 *.jks
 *.keystore
+
+# Local vendor examples / SDK archives (retained in reference/printer-sdk)
+/docs/PrinterDemo/
+/docs/*.7z
+/docs/*.apk
+/docs/*.aar

@@ -92,7 +92,7 @@ flutter build apk --debug
 
 ### Android 原生集成
 
-- 将 `docs/printer-lib-3.5.8.aar` 复制到 `android/app/libs/`，由 Gradle 本地依赖加载。
+- 构建使用 `android/app/libs/printer-lib-3.5.8.aar`，由 Gradle 本地依赖加载。参考 SDK 副本及 Demo 保留在 `reference/printer-sdk` 分支。
 - 在 Manifest 中增加与 Android 版本匹配的经典蓝牙权限：
   - Android 12 及以上：`BLUETOOTH_SCAN`、`BLUETOOTH_CONNECT`
   - 旧版本兼容：带版本限制的传统蓝牙和定位权限
