@@ -2,7 +2,6 @@ import 'package:breast_milk/domain/models/food_tag.dart';
 import 'package:breast_milk/domain/models/milk_enums.dart';
 import 'package:breast_milk/domain/models/milk_record.dart';
 import 'package:breast_milk/domain/models/milk_status_event.dart';
-import 'package:breast_milk/domain/services/inventory_calculator.dart';
 
 abstract interface class MilkRepository {
   Future<MilkRecord> create(CreateMilkRecordCommand command);
@@ -26,10 +25,6 @@ abstract interface class MilkRepository {
   Future<List<MilkRecord>> pendingPrints();
 
   Future<List<MilkStatusEvent>> eventsFor(String milkId);
-
-  Future<MilkRecord?> earliestUsable(DateTime nowUtc);
-
-  Future<InventorySummary> inventorySummary(DateTime nowUtc);
 
   Future<FoodTag> saveFoodTag({required String name, required DateTime atUtc});
 

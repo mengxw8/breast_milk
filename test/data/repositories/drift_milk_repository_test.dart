@@ -357,54 +357,6 @@ void main() {
       ),
     );
   });
-
-  test('SQL汇总区分可用、过期实体、出库和丢弃', () async {
-    final now = DateTime.utc(2026, 9, 10);
-    await repository.create(
-      _createCommand(
-        storedAtUtc: DateTime.utc(2026, 9, 9),
-        createdAtUtc: now,
-        amountMl: 100,
-      ),
-    );
-    await repository.create(
-      _createCommand(
-        storedAtUtc: DateTime.utc(2025, 9, 9),
-        createdAtUtc: now.add(const Duration(microseconds: 1)),
-        amountMl: 90,
-      ),
-    );
-    final checkout = await repository.create(
-      _createCommand(
-        storedAtUtc: DateTime.utc(2026, 9, 8),
-        createdAtUtc: now.add(const Duration(microseconds: 2)),
-        amountMl: 80,
-      ),
-    );
-    await repository.transition(
-      TransitionMilkRecordCommand(
-        id: checkout.id,
-        action: MilkAction.checkOut,
-        occurredAtUtc: now.add(const Duration(hours: 1)),
-      ),
-    );
-
-    final summary = await repository.inventorySummary(now);
-    final earliest = await repository.earliestUsable(now);
-
-    expect(summary.available.totalMl, 100);
-    expect(summary.physical.totalMl, 190);
-    expect(summary.expired.totalMl, 90);
-    expect(summary.checkedOut.totalMl, 80);
-    expect(summary.discarded.totalMl, 0);
-    expect(earliest?.amountMl, 100);
-
-    final availableAfterCheckout = await repository.inventorySummary(
-      now.add(const Duration(hours: 1)),
-    );
-    expect(availableAfterCheckout.available.bagCount, 1);
-    expect(availableAfterCheckout.available.totalMl, 100);
-  });
 }
 
 CreateMilkRecordCommand _createCommand({

@@ -1,6 +1,7 @@
 import 'package:breast_milk/domain/models/milk_enums.dart';
 import 'package:breast_milk/domain/models/milk_record.dart';
 
+/// Authoritative inventory totals, shared by home and statistics.
 class InventoryCalculator {
   const InventoryCalculator();
 

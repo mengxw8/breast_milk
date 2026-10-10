@@ -7,7 +7,6 @@ import 'package:breast_milk/domain/models/milk_record.dart' as domain;
 import 'package:breast_milk/domain/models/milk_status_event.dart' as domain;
 import 'package:breast_milk/domain/repositories/milk_repository.dart';
 import 'package:breast_milk/domain/services/expiry_policy.dart';
-import 'package:breast_milk/domain/services/inventory_calculator.dart';
 import 'package:breast_milk/domain/services/milk_id_generator.dart';
 import 'package:breast_milk/domain/services/milk_state_machine.dart';
 import 'package:drift/drift.dart';
@@ -301,71 +300,6 @@ class DriftMilkRepository implements MilkRepository {
   }
 
   @override
-  Future<domain.MilkRecord?> earliestUsable(DateTime nowUtc) async {
-    _requireUtc(nowUtc);
-    final row =
-        await (database.select(database.milkRecords)
-              ..where(
-                (table) =>
-                    table.status.isInValues(
-                      MilkStatus.values.where((status) => status.isActive),
-                    ) &
-                    table.expiresAtUtc.isBiggerThanValue(nowUtc),
-              )
-              ..orderBy([(table) => OrderingTerm.asc(table.expiresAtUtc)])
-              ..limit(1))
-            .getSingleOrNull();
-    return row == null ? null : _mapRecord(row);
-  }
-
-  @override
-  Future<InventorySummary> inventorySummary(DateTime nowUtc) async {
-    _requireUtc(nowUtc);
-    final row = await database
-        .customSelect(
-          '''
-      SELECT
-        COALESCE(SUM(CASE WHEN status IN (?, ?, ?) AND expires_at_utc > ? THEN 1 ELSE 0 END), 0) AS available_bags,
-        COALESCE(SUM(CASE WHEN status IN (?, ?, ?) AND expires_at_utc > ? THEN amount_ml ELSE 0 END), 0) AS available_ml,
-        COALESCE(SUM(CASE WHEN status IN (?, ?, ?, ?) THEN 1 ELSE 0 END), 0) AS physical_bags,
-        COALESCE(SUM(CASE WHEN status IN (?, ?, ?, ?) THEN amount_ml ELSE 0 END), 0) AS physical_ml,
-        COALESCE(SUM(CASE WHEN status = ? AND expires_at_utc > ? THEN 1 ELSE 0 END), 0) AS frozen_bags,
-        COALESCE(SUM(CASE WHEN status = ? AND expires_at_utc > ? THEN amount_ml ELSE 0 END), 0) AS frozen_ml,
-        COALESCE(SUM(CASE WHEN status = ? AND expires_at_utc > ? THEN 1 ELSE 0 END), 0) AS refrigerated_bags,
-        COALESCE(SUM(CASE WHEN status = ? AND expires_at_utc > ? THEN amount_ml ELSE 0 END), 0) AS refrigerated_ml,
-        COALESCE(SUM(CASE WHEN status = ? AND expires_at_utc > ? THEN 1 ELSE 0 END), 0) AS thawing_bags,
-        COALESCE(SUM(CASE WHEN status = ? AND expires_at_utc > ? THEN amount_ml ELSE 0 END), 0) AS thawing_ml,
-        COALESCE(SUM(CASE WHEN status = ? OR (status IN (?, ?, ?) AND expires_at_utc <= ?) THEN 1 ELSE 0 END), 0) AS expired_bags,
-        COALESCE(SUM(CASE WHEN status = ? OR (status IN (?, ?, ?) AND expires_at_utc <= ?) THEN amount_ml ELSE 0 END), 0) AS expired_ml,
-        COALESCE(SUM(CASE WHEN status = ? THEN 1 ELSE 0 END), 0) AS checked_out_bags,
-        COALESCE(SUM(CASE WHEN status = ? THEN amount_ml ELSE 0 END), 0) AS checked_out_ml,
-        COALESCE(SUM(CASE WHEN status = ? THEN 1 ELSE 0 END), 0) AS discarded_bags,
-        COALESCE(SUM(CASE WHEN status = ? THEN amount_ml ELSE 0 END), 0) AS discarded_ml
-      FROM milk_records
-      ''',
-          variables: _summaryVariables(nowUtc),
-          readsFrom: {database.milkRecords},
-        )
-        .getSingle();
-
-    InventoryMetric metric(String prefix) => InventoryMetric(
-      bagCount: row.read<int>('${prefix}_bags'),
-      totalMl: row.read<int>('${prefix}_ml'),
-    );
-
-    return InventorySummary(
-      available: metric('available'),
-      physical: metric('physical'),
-      frozen: metric('frozen'),
-      refrigerated: metric('refrigerated'),
-      thawing: metric('thawing'),
-      expired: metric('expired'),
-      checkedOut: metric('checked_out'),
-      discarded: metric('discarded'),
-    );
-  }
-
-  @override
   Future<domain.FoodTag> saveFoodTag({
     required String name,
     required DateTime atUtc,
@@ -475,47 +409,6 @@ class DriftMilkRepository implements MilkRepository {
       database.milkRecords,
     )..where((table) => table.id.equals(id))).getSingleOrNull();
     return row != null;
-  }
-
-  List<Variable<Object>> _summaryVariables(DateTime nowUtc) {
-    final active = MilkStatus.values
-        .where((status) => status.isActive)
-        .map((status) => status.name)
-        .toList();
-    final physical = [...active, MilkStatus.expired.name];
-    final variables = <Variable<Object>>[];
-
-    void addStrings(Iterable<String> values) {
-      variables.addAll(values.map(Variable.withString));
-    }
-
-    void addTime() => variables.add(Variable.withDateTime(nowUtc));
-
-    addStrings(active);
-    addTime();
-    addStrings(active);
-    addTime();
-    addStrings(physical);
-    addStrings(physical);
-    for (final status in active) {
-      variables.add(Variable.withString(status));
-      addTime();
-      variables.add(Variable.withString(status));
-      addTime();
-    }
-    variables.add(Variable.withString(MilkStatus.expired.name));
-    addStrings(active);
-    addTime();
-    variables.add(Variable.withString(MilkStatus.expired.name));
-    addStrings(active);
-    addTime();
-    variables.addAll([
-      Variable.withString(MilkStatus.checkedOut.name),
-      Variable.withString(MilkStatus.checkedOut.name),
-      Variable.withString(MilkStatus.discarded.name),
-      Variable.withString(MilkStatus.discarded.name),
-    ]);
-    return variables;
   }
 
   Future<MilkRecordRow> _findRowRequired(String id) async {
