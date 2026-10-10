@@ -43,7 +43,7 @@ flutter run
 flutter build apk --debug
 ~~~
 
-调试 APK 通常生成在 build/app/outputs/flutter-apk/app-debug.apk。当前 Android 的 release 构建仍使用调试签名配置；正式分发前请配置自己的发布签名。
+调试 APK 通常生成在 build/app/outputs/flutter-apk/app-debug.apk。release 构建需要配置 `android/key.properties` 中的独立发布签名；未配置时构建明确失败。配置步骤见[验证与发布签名](docs/verification.md)。
 
 ### 首次使用流程
 
@@ -98,7 +98,9 @@ test/                    # 领域规则、仓储、页面和平台桥接测试
 
 ## 开发与验证
 
-在仓库根目录运行：
+在仓库根目录执行 `./scripts/check.ps1`，统一运行 Flutter analyze、全部测试和 Android lint（包含 Kotlin）。Android lint 所需的 init-script 参数及环境要求见[验证与发布签名](docs/verification.md)。
+
+也可分别运行 Flutter 检查和调试构建：
 
 ~~~bash
 dart format --output=none --set-exit-if-changed lib test
