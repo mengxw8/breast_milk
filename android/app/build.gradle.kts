@@ -38,19 +38,23 @@ android {
     }
 
     signingConfigs {
-        if (releaseSigningFile.exists()) {
-            create("release") {
-                keyAlias = releaseSigning.getProperty("keyAlias")
-                keyPassword = releaseSigning.getProperty("keyPassword")
-                storeFile = rootProject.file(requireNotNull(releaseSigning.getProperty("storeFile")))
-                storePassword = releaseSigning.getProperty("storePassword")
-            }
+        // Always attach a complete signing configuration. Without credentials,
+        // AGP validates this deliberately absent keystore instead of producing
+        // an unsigned artifact through an unrecognised/custom task name.
+        create("release") {
+            val missing = "release-signing-not-configured"
+            keyAlias = releaseSigning.getProperty("keyAlias")?.takeIf { it.isNotBlank() } ?: missing
+            keyPassword = releaseSigning.getProperty("keyPassword")?.takeIf { it.isNotBlank() } ?: missing
+            storePassword = releaseSigning.getProperty("storePassword")?.takeIf { it.isNotBlank() } ?: missing
+            storeFile = releaseSigning.getProperty("storeFile")?.takeIf { it.isNotBlank() }
+                ?.let { rootProject.file(it) }
+                ?: rootProject.file(".missing-release-signing/keystore.jks")
         }
     }
 
     buildTypes {
         release {
-            signingConfig = signingConfigs.findByName("release")
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 
