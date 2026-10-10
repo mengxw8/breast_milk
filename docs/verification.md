@@ -6,6 +6,20 @@
 
 首次发布且没有现成密钥时，在项目根目录运行 `./scripts/setup-release-signing.ps1`（需要 Java 的 `keytool` 在 PATH 中），自动生成独立 RSA 发布密钥和随机密码，并写入本机 `android/key.properties`。随后运行 `flutter build apk --release`，安装包位于 `build/app/outputs/flutter-apk/app-release.apk`。脚本拒绝覆盖已有签名文件。请安全备份 `android/release-keystore.jks` 和 `android/key.properties`；已发布应用必须继续使用原发布密钥，不要重新生成。
 
+### 覆盖安装时签名不一致
+
+`INSTALL_FAILED_UPDATE_INCOMPATIBLE` 表示手机中同包名应用的签名与待安装 APK 不同，`adb install -r` 也不能绕过这一限制。先用 Android SDK Build Tools 中的 `apksigner verify --print-certs` 检查旧 APK 的证书，再与原密钥比对。保留数据的更新必须继续使用原签名。
+
+若旧应用使用本机 `debug.keystore`，且已核验证书匹配，可将 release APK 的副本重新签成仅用于本机测试的更新包（将 Build Tools 加入 PATH 后，在项目根目录执行）：
+
+```powershell
+apksigner sign --ks "$env:USERPROFILE\.android\debug.keystore" --ks-key-alias androiddebugkey --ks-pass pass:android --key-pass pass:android --out build/app/outputs/flutter-apk/app-release-local-update.apk build/app/outputs/flutter-apk/app-release.apk
+apksigner verify --print-certs build/app/outputs/flutter-apk/app-release-local-update.apk
+adb install -r build/app/outputs/flutter-apk/app-release-local-update.apk
+```
+
+这个副本仍是 debug 签名，不用于正式分发，原 `app-release.apk` 保持独立发布签名。需要在设备上切换到新发布签名时，先从应用设置导出并核验数据备份，再卸载旧应用、安装正式包并导入备份；卸载会清除应用数据，提醒设置需要重新配置。
+
 回归测试检查：320px 库存卡片在 1.0 / 1.3 / 2.0 倍字号下全部待打印文案的几何边界；动态过期详情及丢弃动作；深浅主题选中带与折线至少 3:1 的对比度；未知时区和缺失插件降级；坏备份及旧版文件；到期/零点/前台刷新与后台停止计时；20 条带标签记录的列表和待打印查询各只执行 2 次 SELECT。
 
 
