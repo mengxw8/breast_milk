@@ -154,6 +154,63 @@ void main() {
     }
   });
 
+  testWidgets('真正空库存仍显示入库引导', (tester) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [appDatabaseProvider.overrideWithValue(database)],
+        child: MaterialApp(theme: AppTheme.light, home: const InventoryPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('还没有库存记录'), findsOneWidget);
+    expect(find.text('没有符合筛选条件的记录'), findsNothing);
+  });
+
+  testWidgets('状态与待打印组合及搜索无结果显示筛选提示', (tester) async {
+    final now = DateTime.now().toUtc();
+    final frozen = await repository.create(
+      CreateMilkRecordCommand(
+        storedAtUtc: now,
+        timezoneOffsetMinutes: 480,
+        amountMl: 180,
+        storageMode: MilkStorageMode.frozen,
+        createdAtUtc: now,
+      ),
+    );
+    await repository.updatePrintStatus(
+      id: frozen.id,
+      status: PrintStatus.printed,
+      updatedAtUtc: now,
+    );
+    await repository.create(
+      CreateMilkRecordCommand(
+        storedAtUtc: now.add(const Duration(seconds: 1)),
+        timezoneOffsetMinutes: 480,
+        amountMl: 100,
+        storageMode: MilkStorageMode.refrigerated,
+        createdAtUtc: now,
+      ),
+    );
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [appDatabaseProvider.overrideWithValue(database)],
+        child: MaterialApp(theme: AppTheme.light, home: const InventoryPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('冷冻在库'));
+    await tester.tap(find.text('待打印'));
+    await tester.pumpAndSettle();
+    expect(find.text('没有符合筛选条件的记录'), findsOneWidget);
+    expect(find.text('还没有库存记录'), findsNothing);
+    await tester.tap(find.text('待打印'));
+    await tester.pumpAndSettle();
+    expect(find.text('180 mL · 冷冻在库'), findsOneWidget);
+    await tester.enterText(find.byType(TextField), 'no-match');
+    await tester.pumpAndSettle();
+    expect(find.text('没有符合筛选条件的记录'), findsOneWidget);
+  });
+
   testWidgets('冷冻在库按入库时间倒序排列', (tester) async {
     final older = DateTime.utc(2026, 9, 10, 10);
     final newer = DateTime.utc(2026, 9, 11, 10);

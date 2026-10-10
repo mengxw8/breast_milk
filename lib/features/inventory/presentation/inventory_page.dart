@@ -111,6 +111,17 @@ class _InventoryPageState extends ConsumerState<InventoryPage> {
                     return a.storedAtUtc.compareTo(b.storedAtUtc);
                   });
                   if (visible.isEmpty) {
+                    if (_statusFilter != null ||
+                        _pendingPrintsOnly ||
+                        _search.trim().isNotEmpty) {
+                      return const Center(
+                        child: AppEmptyState(
+                          icon: Icons.filter_alt_off_outlined,
+                          title: '没有符合筛选条件的记录',
+                          message: '调整筛选条件或清空搜索后再试。',
+                        ),
+                      );
+                    }
                     return const Center(
                       child: AppEmptyState(
                         icon: Icons.kitchen_outlined,
