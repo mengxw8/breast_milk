@@ -1,13 +1,18 @@
 import 'package:breast_milk/app/theme/app_theme.dart';
+import 'package:breast_milk/data/database/inventory_clock.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-class AppShell extends StatelessWidget {
+class AppShell extends ConsumerWidget {
   const AppShell({required this.navigationShell, super.key});
 
   final StatefulNavigationShell navigationShell;
 
-  void _select(int index) {
+  void _select(int index, WidgetRef ref) {
+    if (index == 0 || index == 1 || index == 3) {
+      ref.invalidate(inventoryDataProvider);
+    }
     navigationShell.goBranch(
       index,
       initialLocation: index == navigationShell.currentIndex,
@@ -15,7 +20,7 @@ class AppShell extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final semantic = Theme.of(context).extension<AppSemanticColors>()!;
     return Scaffold(
       body: ActiveBranchScope(
@@ -24,7 +29,7 @@ class AppShell extends StatelessWidget {
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: navigationShell.currentIndex,
-        onDestinationSelected: _select,
+        onDestinationSelected: (index) => _select(index, ref),
         destinations: [
           const NavigationDestination(
             icon: Icon(Icons.home_outlined),
