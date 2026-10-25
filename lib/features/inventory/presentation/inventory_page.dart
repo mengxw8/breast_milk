@@ -360,7 +360,11 @@ class _RecordTileState extends State<_RecordTile> {
       child: Stack(
         alignment: Alignment.centerRight,
         children: [
-          Positioned.fill(
+          Positioned(
+            top: 0,
+            bottom: 0,
+            right: 0,
+            width: _actionWidth,
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [

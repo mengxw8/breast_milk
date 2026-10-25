@@ -22,6 +22,51 @@ void main() {
 
   tearDown(() => database.close());
 
+  testWidgets('左滑后右侧丢弃和删除按钮可见且可点击', (tester) async {
+    tester.view.physicalSize = const Size(320, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final now = DateTime.now().toUtc();
+    await repository.create(
+      CreateMilkRecordCommand(
+        storedAtUtc: now,
+        timezoneOffsetMinutes: 480,
+        amountMl: 180,
+        storageMode: MilkStorageMode.frozen,
+        createdAtUtc: now,
+      ),
+    );
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [appDatabaseProvider.overrideWithValue(database)],
+        child: MaterialApp(theme: AppTheme.light, home: const InventoryPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final card = find.byType(Card);
+    final originalRect = tester.getRect(card);
+    await tester.drag(card, const Offset(-180, 0));
+    await tester.pumpAndSettle();
+
+    for (final icon in [Icons.archive_outlined, Icons.delete_outline]) {
+      final button = find.widgetWithIcon(FilledButton, icon);
+      final buttonRect = tester.getRect(button);
+      expect(buttonRect.left, greaterThanOrEqualTo(tester.getRect(card).right));
+      expect(buttonRect.right, lessThanOrEqualTo(originalRect.right));
+      expect(button.hitTestable(), findsOneWidget);
+      await tester.tap(button);
+      await tester.pumpAndSettle();
+      expect(
+        find.text(icon == Icons.archive_outlined ? '确认标记丢弃' : '确认删除记录'),
+        findsOneWidget,
+      );
+      await tester.tap(find.text('取消'));
+      await tester.pumpAndSettle();
+    }
+    expect(tester.takeException(), isNull);
+  });
+
   for (final scale in [1.0, 1.3, 2.0]) {
     testWidgets('打印状态完整位于卡片内，字号 $scale', (tester) async {
       tester.view.physicalSize = const Size(320, 1000);
