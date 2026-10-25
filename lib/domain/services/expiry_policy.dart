@@ -4,9 +4,48 @@ import 'package:breast_milk/domain/models/milk_enums.dart';
 import 'package:breast_milk/domain/models/milk_record.dart';
 
 class ExpiryPolicy {
-  const ExpiryPolicy();
+  const ExpiryPolicy({
+    this.refrigeratedDays = 4,
+    this.frozenMonths = 12,
+    this.frozenBestUseMonths = 6,
+  }) : assert(refrigeratedDays > 0),
+       assert(frozenMonths > 0),
+       assert(frozenBestUseMonths > 0 && frozenBestUseMonths <= frozenMonths);
+
+  final int refrigeratedDays;
+  final int frozenMonths;
+  final int frozenBestUseMonths;
+
+  factory ExpiryPolicy.fromSettings(
+    Map<String, dynamic> values, {
+    ExpiryPolicy fallback = const ExpiryPolicy(),
+  }) {
+    int read(String key, int fallback, int max) {
+      final value = values[key];
+      return value is int && value > 0 && value <= max ? value : fallback;
+    }
+
+    final frozen = read('expiry.frozenMonths', fallback.frozenMonths, 120);
+    return ExpiryPolicy(
+      refrigeratedDays: read(
+        'expiry.refrigeratedDays',
+        fallback.refrigeratedDays,
+        365,
+      ),
+      frozenMonths: frozen,
+      frozenBestUseMonths: math.min(
+        read('expiry.frozenBestUseMonths', fallback.frozenBestUseMonths, 120),
+        frozen,
+      ),
+    );
+  }
 
   static const ruleVersion = 'cdc-2025-v1';
+
+  String get _storageRuleVersion =>
+      refrigeratedDays == 4 && frozenMonths == 12 && frozenBestUseMonths == 6
+      ? ruleVersion
+      : 'custom-v1:$refrigeratedDays:$frozenMonths:$frozenBestUseMonths';
 
   ExpiryWindow forStorage({
     required MilkStorageMode mode,
@@ -16,27 +55,31 @@ class ExpiryPolicy {
     _requireUtc(storedAtUtc);
     return switch (mode) {
       MilkStorageMode.frozen => ExpiryWindow(
-        bestUseAtUtc: _addCalendarMonths(storedAtUtc, timezoneOffsetMinutes, 6),
+        bestUseAtUtc: _addCalendarMonths(
+          storedAtUtc,
+          timezoneOffsetMinutes,
+          frozenBestUseMonths,
+        ),
         expiresAtUtc: _addCalendarMonths(
           storedAtUtc,
           timezoneOffsetMinutes,
-          12,
+          frozenMonths,
         ),
         bestUseReminderAtUtc: _addCalendarMonths(
           storedAtUtc,
           timezoneOffsetMinutes,
-          5,
+          frozenBestUseMonths - 1,
         ),
         finalExpiryReminderAtUtc: _addCalendarMonths(
           storedAtUtc,
           timezoneOffsetMinutes,
-          11,
+          frozenMonths - 1,
         ),
-        ruleVersion: ruleVersion,
+        ruleVersion: _storageRuleVersion,
       ),
       MilkStorageMode.refrigerated => ExpiryWindow(
-        expiresAtUtc: storedAtUtc.add(const Duration(hours: 96)),
-        ruleVersion: ruleVersion,
+        expiresAtUtc: storedAtUtc.add(Duration(days: refrigeratedDays)),
+        ruleVersion: _storageRuleVersion,
       ),
     };
   }
@@ -50,7 +93,15 @@ class ExpiryPolicy {
   }
 
   ExpiryRisk assessRecord(MilkRecord record, DateTime nowUtc) {
-    final storage = forStorage(
+    final parts = record.expiryRuleVersion.split(':');
+    final policy = parts.length == 4 && parts.first == 'custom-v1'
+        ? ExpiryPolicy.fromSettings({
+            'expiry.refrigeratedDays': int.tryParse(parts[1]),
+            'expiry.frozenMonths': int.tryParse(parts[2]),
+            'expiry.frozenBestUseMonths': int.tryParse(parts[3]),
+          })
+        : const ExpiryPolicy();
+    final storage = policy.forStorage(
       mode: record.storageMode,
       storedAtUtc: record.storedAtUtc,
       timezoneOffsetMinutes: record.timezoneOffsetMinutes,

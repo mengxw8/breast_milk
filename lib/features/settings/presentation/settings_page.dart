@@ -1,4 +1,5 @@
 import 'package:breast_milk/data/database/database_providers.dart';
+import 'package:breast_milk/domain/services/expiry_policy.dart';
 import 'package:breast_milk/features/home/presentation/home_page.dart';
 import 'package:breast_milk/features/intake/application/intake_service.dart';
 import 'package:breast_milk/features/inventory/presentation/inventory_page.dart';
@@ -24,6 +25,7 @@ class SettingsPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final values = ref.watch(settingsValuesProvider);
+    final expiry = ref.watch(storageExpiryPolicyProvider);
     final notificationsEnabled =
         values.asData?.value['notifications.enabled'] == true;
     return Scaffold(
@@ -48,6 +50,23 @@ class SettingsPage extends ConsumerWidget {
               subtitle: const Text('管理入库时的常用食物标签'),
               trailing: const Icon(Icons.chevron_right),
               onTap: () => context.push('/settings/food-tags'),
+            ),
+            const Divider(),
+            ListTile(
+              contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+              leading: const Icon(Icons.kitchen_outlined),
+              title: const Text('保质期设置'),
+              subtitle: expiry.when(
+                data: (policy) => Text(
+                  '冷藏 ${policy.refrigeratedDays} 天 · 冷冻 ${policy.frozenMonths} 个月\n冷冻最佳使用期 ${policy.frozenBestUseMonths} 个月',
+                ),
+                loading: () => const Text('正在读取设置'),
+                error: (_, _) => const Text('设置读取失败'),
+              ),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: expiry.asData == null
+                  ? null
+                  : () => _editExpiry(context, ref, expiry.asData!.value),
             ),
             const Divider(),
             SwitchListTile(
@@ -118,6 +137,47 @@ class SettingsPage extends ConsumerWidget {
     );
   }
 
+  Future<void> _editExpiry(
+    BuildContext context,
+    WidgetRef ref,
+    ExpiryPolicy current,
+  ) async {
+    final result = await showDialog<ExpiryPolicy>(
+      context: context,
+      builder: (_) => _ExpirySettingsDialog(current: current),
+    );
+    if (result == null || !context.mounted) return;
+    try {
+      final database = ref.read(appDatabaseProvider);
+      final store = SettingsStore(database);
+      final now = DateTime.now().toUtc();
+      await database.transaction(() async {
+        await store.write(
+          'expiry.refrigeratedDays',
+          result.refrigeratedDays,
+          now,
+        );
+        await store.write('expiry.frozenMonths', result.frozenMonths, now);
+        await store.write(
+          'expiry.frozenBestUseMonths',
+          result.frozenBestUseMonths,
+          now,
+        );
+      });
+      ref.invalidate(settingsValuesProvider);
+      ref.invalidate(storageExpiryPolicyProvider);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('保质期设置已保存')));
+      }
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('保存失败，请重试')));
+      }
+    }
+  }
+
   Future<void> _pickTime(
     BuildContext context,
     WidgetRef ref,
@@ -152,9 +212,8 @@ class SettingsPage extends ConsumerWidget {
     var busyOpen = true;
     _showBusyDialog(context, '正在导出，请稍候…');
     try {
-      final bytes = await BackupService(
-        ref.read(appDatabaseProvider),
-      ).exportJsonBytes();
+      final bytes = await BackupService(ref.read(appDatabaseProvider))
+          .exportJsonBytes();
       if (!context.mounted) return;
       // Close busy dialog before the system save picker appears.
       _safePopBusy(context);
@@ -164,9 +223,9 @@ class SettingsPage extends ConsumerWidget {
         fileName: 'dun_dun_dun_backup.json',
       );
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(saved ? '数据已导出（UTF-8）' : '已取消导出')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(saved ? '数据已导出（UTF-8）' : '已取消导出')));
     } on PlatformException catch (error) {
       if (context.mounted) {
         if (busyOpen) _safePopBusy(context);
@@ -177,9 +236,8 @@ class SettingsPage extends ConsumerWidget {
     } catch (error) {
       if (context.mounted) {
         if (busyOpen) _safePopBusy(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('导出失败：$error')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('导出失败：$error')));
       }
     }
   }
@@ -197,16 +255,13 @@ class SettingsPage extends ConsumerWidget {
     } on PlatformException catch (error) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('导入失败：${error.message ?? error.code}'),
-          ),
+          SnackBar(content: Text('导入失败：${error.message ?? error.code}')),
         );
       }
     } catch (_) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('导入失败，数据未改变')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('导入失败，数据未改变')));
       }
     }
   }
@@ -223,6 +278,8 @@ class SettingsPage extends ConsumerWidget {
         persistPreImport: true,
       ).importJson(BackupService.decodeBackupBytes(bytes));
       ref
+        ..invalidate(settingsValuesProvider)
+        ..invalidate(storageExpiryPolicyProvider)
         ..invalidate(homeInventorySummaryProvider)
         ..invalidate(homeEarliestRecordProvider)
         ..invalidate(homeRecordsProvider)
@@ -232,23 +289,21 @@ class SettingsPage extends ConsumerWidget {
         ..invalidate(intakeFoodTagsProvider);
       if (context.mounted) {
         _safePopBusy(context);
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('已合并 $count 项数据')));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('已合并 $count 项数据')));
       }
     } on BackupFailure catch (error) {
       if (context.mounted) {
         _safePopBusy(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(_backupFailureMessage(error))),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(_backupFailureMessage(error))));
       }
     } catch (error) {
       if (context.mounted) {
         _safePopBusy(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('导入失败：$error')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('导入失败：$error')));
       }
     }
   }
@@ -293,4 +348,100 @@ class SettingsPage extends ConsumerWidget {
       _ => '导入失败，数据未改变',
     };
   }
+}
+
+class _ExpirySettingsDialog extends StatefulWidget {
+  const _ExpirySettingsDialog({required this.current});
+  final ExpiryPolicy current;
+
+  @override
+  State<_ExpirySettingsDialog> createState() => _ExpirySettingsDialogState();
+}
+
+class _ExpirySettingsDialogState extends State<_ExpirySettingsDialog> {
+  final _formKey = GlobalKey<FormState>();
+  late final _refrigerated = TextEditingController(
+    text: '${widget.current.refrigeratedDays}',
+  );
+  late final _frozen = TextEditingController(
+    text: '${widget.current.frozenMonths}',
+  );
+  late final _bestUse = TextEditingController(
+    text: '${widget.current.frozenBestUseMonths}',
+  );
+
+  @override
+  void dispose() {
+    _refrigerated.dispose();
+    _frozen.dispose();
+    _bestUse.dispose();
+    super.dispose();
+  }
+
+  Widget _field(
+    String label,
+    String unit,
+    TextEditingController controller,
+    int max, {
+    bool bestUse = false,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: TextFormField(
+        controller: controller,
+        decoration: InputDecoration(labelText: label, suffixText: unit),
+        keyboardType: TextInputType.number,
+        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+        validator: (text) {
+          final value = int.tryParse(text ?? '');
+          if (value == null || value < 1 || value > max) {
+            return '请输入 1～$max 的整数';
+          }
+          if (bestUse && value > (int.tryParse(_frozen.text) ?? 0)) {
+            return '最佳使用期不能超过冷冻保质期';
+          }
+          return null;
+        },
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    title: const Text('保质期设置'),
+    content: SingleChildScrollView(
+      child: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _field('冷藏保质期', '天', _refrigerated, 365),
+            _field('冷冻保质期', '个月', _frozen, 120),
+            _field('冷冻最佳使用期', '个月', _bestUse, 120, bestUse: true),
+            const Text('按入库时间计算；用于新入库及重新编辑的记录，已有记录保留原期限。'),
+          ],
+        ),
+      ),
+    ),
+    actions: [
+      TextButton(
+        onPressed: () => Navigator.pop(context),
+        child: const Text('取消'),
+      ),
+      FilledButton(
+        onPressed: () {
+          if (!_formKey.currentState!.validate()) return;
+          Navigator.pop(
+            context,
+            ExpiryPolicy(
+              refrigeratedDays: int.parse(_refrigerated.text),
+              frozenMonths: int.parse(_frozen.text),
+              frozenBestUseMonths: int.parse(_bestUse.text),
+            ),
+          );
+        },
+        child: const Text('保存'),
+      ),
+    ],
+  );
 }

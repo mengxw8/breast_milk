@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import 'package:breast_milk/domain/services/expiry_policy.dart';
+
 import 'package:breast_milk/data/database/app_database.dart';
 import 'package:breast_milk/data/repositories/drift_milk_repository.dart';
 import 'package:breast_milk/domain/repositories/milk_repository.dart';
@@ -18,6 +20,11 @@ final appDatabaseProvider = Provider<AppDatabase>((ref) {
 final milkRepositoryProvider = Provider<MilkRepository>(
   (ref) => DriftMilkRepository(ref.watch(appDatabaseProvider)),
 );
+
+final storageExpiryPolicyProvider = FutureProvider<ExpiryPolicy>((ref) async {
+  final database = ref.watch(appDatabaseProvider);
+  return ExpiryPolicy.fromSettings(await SettingsStore(database).read());
+});
 
 final notificationSyncProvider = Provider<void>((ref) {
   // Widget tests use fake async timers; the production stream is not needed there.

@@ -1,6 +1,7 @@
 import 'package:breast_milk/domain/models/food_tag.dart';
 import 'package:breast_milk/domain/models/milk_enums.dart';
 import 'package:breast_milk/domain/services/expiry_policy.dart';
+import 'package:breast_milk/data/database/database_providers.dart';
 import 'package:breast_milk/features/home/presentation/home_page.dart';
 import 'package:breast_milk/features/intake/application/intake_service.dart';
 import 'package:breast_milk/shared/widgets/app_time_picker.dart';
@@ -41,7 +42,8 @@ class _IntakePageState extends ConsumerState<IntakePage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final foodTags = ref.watch(intakeFoodTagsProvider);
-    final expiry = const ExpiryPolicy().forStorage(
+    final policy = ref.watch(storageExpiryPolicyProvider);
+    final expiry = (policy.asData?.value ?? const ExpiryPolicy()).forStorage(
       mode: _storageMode,
       storedAtUtc: _storedAt.toUtc(),
       timezoneOffsetMinutes: _storedAt.timeZoneOffset.inMinutes,

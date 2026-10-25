@@ -10,6 +10,7 @@ import 'package:breast_milk/domain/services/expiry_policy.dart';
 import 'package:breast_milk/domain/services/milk_id_generator.dart';
 import 'package:breast_milk/domain/services/milk_state_machine.dart';
 import 'package:drift/drift.dart';
+import 'package:breast_milk/features/settings/application/settings_store.dart';
 
 class DriftMilkRepository implements MilkRepository {
   DriftMilkRepository(
@@ -40,7 +41,11 @@ class DriftMilkRepository implements MilkRepository {
         intakeLocalTime: localTime,
         exists: _idExists,
       );
-      final window = expiryPolicy.forStorage(
+      final policy = ExpiryPolicy.fromSettings(
+        await SettingsStore(database).read(),
+        fallback: expiryPolicy,
+      );
+      final window = policy.forStorage(
         mode: command.storageMode,
         storedAtUtc: command.storedAtUtc,
         timezoneOffsetMinutes: command.timezoneOffsetMinutes,
@@ -164,7 +169,11 @@ class DriftMilkRepository implements MilkRepository {
           current.status != MilkStatus.refrigeratedInStock) {
         throw const MilkRepositoryFailure('edit_not_allowed');
       }
-      final window = expiryPolicy.forStorage(
+      final policy = ExpiryPolicy.fromSettings(
+        await SettingsStore(database).read(),
+        fallback: expiryPolicy,
+      );
+      final window = policy.forStorage(
         mode: command.storageMode,
         storedAtUtc: command.storedAtUtc,
         timezoneOffsetMinutes: command.timezoneOffsetMinutes,
