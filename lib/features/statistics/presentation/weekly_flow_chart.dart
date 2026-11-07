@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:breast_milk/domain/services/weekly_milk_flow.dart';
+import 'package:breast_milk/features/statistics/presentation/milk_amount_formatter.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -48,11 +49,11 @@ class _WeeklyFlowChartState extends State<WeeklyFlowChart> {
               children: [
                 _LegendDot(
                   color: theme.colorScheme.primary,
-                  label: '入库 ${flow.intakeMl} mL',
+                  label: '入库 ${formatStatisticsMilkAmount(flow.intakeMl)}',
                 ),
                 _LegendDot(
                   color: theme.colorScheme.secondary,
-                  label: '出库 ${flow.checkoutMl} mL',
+                  label: '出库 ${formatStatisticsMilkAmount(flow.checkoutMl)}',
                 ),
               ],
             ),
@@ -133,7 +134,7 @@ class _WeeklyFlowChartState extends State<WeeklyFlowChart> {
             ),
             const SizedBox(height: 4),
             Text(
-              '${_captionFormat.format(day.date)}  入库 ${day.intakeMl} mL · 出库 ${day.checkoutMl} mL',
+              '${_captionFormat.format(day.date)}  入库 ${formatStatisticsMilkAmount(day.intakeMl)} · 出库 ${formatStatisticsMilkAmount(day.checkoutMl)}',
               style: theme.textTheme.bodyMedium,
             ),
           ],
@@ -260,7 +261,7 @@ List<_PointValueLabel> _pointValueLabels({
         left: leftFor(center),
         top: tops.$1,
         width: slotWidth,
-        text: '${day.intakeMl}',
+        text: formatStatisticsMilkChartValue(day.intakeMl),
         color: intakeColor,
       ),
     );
@@ -269,7 +270,7 @@ List<_PointValueLabel> _pointValueLabels({
         left: leftFor(center),
         top: tops.$2,
         width: slotWidth,
-        text: '${day.checkoutMl}',
+        text: formatStatisticsMilkChartValue(day.checkoutMl),
         color: checkoutColor,
       ),
     );
@@ -356,7 +357,7 @@ class _FlowChartPainter extends CustomPainter {
       canvas.drawLine(Offset(plot.left, y), Offset(plot.right, y), gridPaint);
       _paintLabel(
         canvas,
-        _formatAxis((axisMax * fraction).round()),
+        formatStatisticsMilkChartValue((axisMax * fraction).round()),
         Offset(plot.left - 6, y),
         alignRight: true,
       );
@@ -441,11 +442,6 @@ class _FlowChartPainter extends CustomPainter {
         : anchor.dx - painter.width / 2;
     final dy = below ? anchor.dy : anchor.dy - painter.height / 2;
     painter.paint(canvas, Offset(dx, dy));
-  }
-
-  String _formatAxis(int value) {
-    if (value >= 1000 && value % 1000 == 0) return '${value ~/ 1000}k';
-    return '$value';
   }
 
   @override

@@ -137,4 +137,33 @@ void main() {
     expect(find.text('出库 150 mL'), findsOneWidget);
     expect(find.textContaining('入库 150 mL · 出库 150 mL'), findsOneWidget);
   });
+
+  testWidgets('统计奶量超过1000毫升时按升显示并保留两位小数', (tester) async {
+    final database = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(database.close);
+    final repository = DriftMilkRepository(database);
+    final now = DateTime.now().toUtc();
+    await repository.create(
+      CreateMilkRecordCommand(
+        storedAtUtc: now,
+        timezoneOffsetMinutes: now.toLocal().timeZoneOffset.inMinutes,
+        amountMl: 1250,
+        storageMode: MilkStorageMode.frozen,
+        createdAtUtc: now,
+      ),
+    );
+
+    await tester.binding.setSurfaceSize(const Size(400, 1600));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [appDatabaseProvider.overrideWithValue(database)],
+        child: MaterialApp(theme: AppTheme.light, home: const StatisticsPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('1.25 L'), findsWidgets);
+    expect(find.textContaining('1250 mL'), findsNothing);
+  });
 }

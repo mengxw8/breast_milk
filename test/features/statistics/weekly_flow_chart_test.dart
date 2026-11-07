@@ -82,4 +82,27 @@ void main() {
 
     expect(find.textContaining('9月17日  入库 80 mL · 出库 0 mL'), findsOneWidget);
   });
+
+  testWidgets('超过1000毫升的图表奶量按升显示并保留两位小数', (tester) async {
+    final flow = WeeklyMilkFlow([
+      for (var day = 17; day <= 23; day++)
+        DailyMilkVolume(
+          date: DateTime(2026, 9, day),
+          intakeMl: day == 23 ? 1250 : 0,
+          checkoutMl: 0,
+        ),
+    ]);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: Scaffold(body: WeeklyFlowChart(flow: flow)),
+      ),
+    );
+
+    expect(find.text('入库 1.25 L'), findsOneWidget);
+    expect(find.text('1.25 L'), findsOneWidget);
+    expect(find.textContaining('入库 1.25 L · 出库 0 mL'), findsOneWidget);
+    expect(find.textContaining('1250 mL'), findsNothing);
+  });
 }

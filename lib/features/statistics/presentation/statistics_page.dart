@@ -4,6 +4,7 @@ import 'package:breast_milk/domain/models/milk_enums.dart';
 import 'package:breast_milk/domain/models/milk_record.dart';
 import 'package:breast_milk/domain/services/inventory_calculator.dart';
 import 'package:breast_milk/domain/services/weekly_milk_flow.dart';
+import 'package:breast_milk/features/statistics/presentation/milk_amount_formatter.dart';
 import 'package:breast_milk/features/statistics/presentation/weekly_flow_chart.dart';
 import 'package:breast_milk/shared/widgets/app_empty_state.dart';
 import 'package:flutter/material.dart';
@@ -109,7 +110,7 @@ class StatisticsPage extends ConsumerWidget {
                                 contentPadding: EdgeInsets.zero,
                                 leading: const Icon(Icons.schedule_outlined),
                                 title: Text(
-                                  '${record.amountMl} mL · ${record.id}',
+                                  '${formatStatisticsMilkAmount(record.amountMl)} · ${record.id}',
                                 ),
                                 subtitle: Text(
                                   '最终期限 ${DateFormat('M月d日 HH:mm').format(record.expiresAtUtc.toLocal())}',
@@ -196,7 +197,9 @@ class _DeadlineMetrics extends StatelessWidget {
               children: [
                 Text(item.$1, maxLines: 1, overflow: TextOverflow.ellipsis),
                 const Spacer(),
-                Text('${item.$2.bagCount} 袋 · ${item.$2.totalMl} mL'),
+                Text(
+                  '${item.$2.bagCount} 袋 · ${formatStatisticsMilkAmount(item.$2.totalMl)}',
+                ),
               ],
             ),
           ),
@@ -242,7 +245,7 @@ class _MetricGrid extends StatelessWidget {
                 Text(metric.label),
                 const Spacer(),
                 Text(
-                  '${metric.value.bagCount} 袋 · ${metric.value.totalMl} mL',
+                  '${metric.value.bagCount} 袋 · ${formatStatisticsMilkAmount(metric.value.totalMl)}',
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
               ],
