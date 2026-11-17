@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="shortcut_checkout_short_label">出库</string>
+    <string name="shortcut_checkout_long_label">扫码出库</string>
+</resources>

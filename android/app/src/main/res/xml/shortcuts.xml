@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="scan_checkout"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_checkout"
+        android:shortcutShortLabel="@string/shortcut_checkout_short_label"
+        android:shortcutLongLabel="@string/shortcut_checkout_long_label">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="cn.mengxw.breast_milk"
+            android:targetClass="cn.mengxw.breast_milk.MainActivity"
+            android:data="breastmilk://app/scan" />
+    </shortcut>
+</shortcuts>
