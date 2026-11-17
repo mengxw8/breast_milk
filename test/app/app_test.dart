@@ -1,6 +1,7 @@
 import 'package:breast_milk/app/app.dart';
 import 'package:breast_milk/data/database/app_database.dart';
 import 'package:breast_milk/data/database/database_providers.dart';
+import 'package:breast_milk/features/intake/presentation/intake_page.dart';
 import 'package:breast_milk/features/inventory/presentation/inventory_page.dart';
 import 'package:breast_milk/features/launch/presentation/brand_launch_page.dart';
 import 'package:breast_milk/features/scanner/presentation/scanner_page.dart';
@@ -53,22 +54,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(InventoryPage), findsOneWidget);
 
-    Future<void> openShortcut() async {
-      final handled = tester.binding.defaultBinaryMessenger
-          .handlePlatformMessage(
-            'flutter/navigation',
-            const JSONMethodCodec().encodeMethodCall(
-              const MethodCall('pushRouteInformation', {
-                'location': 'breastmilk://app/scan',
-              }),
-            ),
-            (_) {},
-          );
-      await tester.pumpAndSettle();
-      await handled;
-    }
-
-    await openShortcut();
+    await _openShortcut(tester, 'scan');
     expect(find.byType(ScannerPage), findsOneWidget);
     expect(
       tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex,
@@ -77,9 +63,54 @@ void main() {
 
     await tester.tap(find.text('首页'));
     await tester.pumpAndSettle();
-    await openShortcut();
+    await _openShortcut(tester, 'scan');
     expect(find.byType(ScannerPage), findsOneWidget);
     expect(find.text('扫码出库'), findsOneWidget);
+  });
+
+  testWidgets('桌面入库快捷入口冷启动直接进入入库页并可返回首页', (tester) async {
+    tester.binding.platformDispatcher.defaultRouteNameTestValue =
+        'breastmilk://app/intake';
+    addTearDown(
+      tester.binding.platformDispatcher.clearDefaultRouteNameTestValue,
+    );
+
+    await tester.pumpWidget(shortcutTestApp());
+    await tester.pumpAndSettle();
+
+    expect(find.byType(IntakePage), findsOneWidget);
+    expect(find.text('母乳入库'), findsOneWidget);
+    expect(
+      tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex,
+      0,
+    );
+
+    await tester.tap(find.byType(BackButton));
+    await tester.pumpAndSettle();
+    expect(find.byType(IntakePage), findsNothing);
+    expect(find.text('母乳库存管理'), findsOneWidget);
+  });
+
+  testWidgets('运行中的应用收到入库快捷入口后打开入库页且支持重复进入', (tester) async {
+    await tester.pumpWidget(shortcutTestApp());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('库存'));
+    await tester.pumpAndSettle();
+    expect(find.byType(InventoryPage), findsOneWidget);
+
+    await _openShortcut(tester, 'intake');
+    expect(find.byType(IntakePage), findsOneWidget);
+    expect(find.text('母乳入库'), findsOneWidget);
+    expect(
+      tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex,
+      0,
+    );
+
+    await tester.tap(find.byType(BackButton));
+    await tester.pumpAndSettle();
+    await _openShortcut(tester, 'intake');
+    expect(find.byType(IntakePage), findsOneWidget);
+    expect(find.text('母乳入库'), findsOneWidget);
   });
 
   testWidgets('启动时显示全屏品牌插画并自动进入首页', (tester) async {
@@ -161,6 +192,20 @@ void main() {
     expect(tester.takeException(), isNull);
     expect(find.byType(NavigationBar), findsOneWidget);
   });
+}
+
+Future<void> _openShortcut(WidgetTester tester, String path) async {
+  final handled = tester.binding.defaultBinaryMessenger.handlePlatformMessage(
+    'flutter/navigation',
+    const JSONMethodCodec().encodeMethodCall(
+      MethodCall('pushRouteInformation', {
+        'location': 'breastmilk://app/$path',
+      }),
+    ),
+    (_) {},
+  );
+  await tester.pumpAndSettle();
+  await handled;
 }
 
 class _ShortcutScannerPlatform extends MobileScannerPlatform {

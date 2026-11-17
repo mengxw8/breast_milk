@@ -2,4 +2,6 @@
 <resources>
     <string name="shortcut_checkout_short_label">出库</string>
     <string name="shortcut_checkout_long_label">扫码出库</string>
+    <string name="shortcut_intake_short_label">入库</string>
+    <string name="shortcut_intake_long_label">一键入库</string>
 </resources>

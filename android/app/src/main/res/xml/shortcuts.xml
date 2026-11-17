@@ -12,4 +12,16 @@
             android:targetClass="cn.mengxw.breast_milk.MainActivity"
             android:data="breastmilk://app/scan" />
     </shortcut>
+    <shortcut
+        android:shortcutId="intake"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_intake"
+        android:shortcutShortLabel="@string/shortcut_intake_short_label"
+        android:shortcutLongLabel="@string/shortcut_intake_long_label">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="cn.mengxw.breast_milk"
+            android:targetClass="cn.mengxw.breast_milk.MainActivity"
+            android:data="breastmilk://app/intake" />
+    </shortcut>
 </shortcuts>
